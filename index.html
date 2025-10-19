@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking Allocation System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1><i class="fas fa-car"></i> Smart Parking Allocation System</h1>
+            <nav class="nav">
+                <button class="nav-btn active" data-page="dashboard">Dashboard</button>
+                <button class="nav-btn" data-page="admin">Admin Panel</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="page active">
+            <div class="container">
+                <div class="dashboard-header">
+                    <h2>Parking Dashboard</h2>
+                    <div class="controls">
+                        <button class="btn btn-primary" id="bookSlotBtn">
+                            <i class="fas fa-plus"></i> Book Slot
+                        </button>
+                        <button class="btn btn-secondary" id="releaseSlotBtn">
+                            <i class="fas fa-minus"></i> Release Slot
+                        </button>
+                        <button class="btn btn-info" id="refreshBtn">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Parking Grid -->
+                <div class="parking-grid" id="parkingGrid">
+                    <!-- Car Lanes Section -->
+                    <div class="vehicle-section">
+                        <div class="section-header">
+                            <i class="fas fa-car section-icon"></i>
+                            <h3>Car Parking</h3>
+                            <div class="section-count">(<span id="carAvailable">0</span> available)</div>
+                        </div>
+                        <div class="lanes-container">
+                            <div class="parking-lane" id="carLane1">
+                                <div class="lane-header">
+                                    <div class="lane-title">Car Lane A</div>
+                                    <div class="lane-count">(<span id="carLane1Available">0</span> available)</div>
+                                </div>
+                                <div class="lane-slots" id="carLane1Slots"></div>
+                            </div>
+                            <div class="parking-lane" id="carLane2">
+                                <div class="lane-header">
+                                    <div class="lane-title">Car Lane B</div>
+                                    <div class="lane-count">(<span id="carLane2Available">0</span> available)</div>
+                                </div>
+                                <div class="lane-slots" id="carLane2Slots"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Two-Wheeler Lanes Section -->
+                    <div class="vehicle-section">
+                        <div class="section-header">
+                            <i class="fas fa-motorcycle section-icon"></i>
+                            <h3>Two-Wheeler Parking</h3>
+                            <div class="section-count">(<span id="twoWheelerAvailable">0</span> available)</div>
+                        </div>
+                        <div class="lanes-container">
+                            <div class="parking-lane" id="twoWheelerLane1">
+                                <div class="lane-header">
+                                    <div class="lane-title">Two-Wheeler Lane A</div>
+                                    <div class="lane-count">(<span id="twoWheelerLane1Available">0</span> available)</div>
+                                </div>
+                                <div class="lane-slots" id="twoWheelerLane1Slots"></div>
+                            </div>
+                            <div class="parking-lane" id="twoWheelerLane2">
+                                <div class="lane-header">
+                                    <div class="lane-title">Two-Wheeler Lane B</div>
+                                    <div class="lane-count">(<span id="twoWheelerLane2Available">0</span> available)</div>
+                                </div>
+                                <div class="lane-slots" id="twoWheelerLane2Slots"></div>
+                            </div>
+                            <div class="parking-lane" id="twoWheelerLane3">
+                                <div class="lane-header">
+                                    <div class="lane-title">Two-Wheeler Lane C</div>
+                                    <div class="lane-count">(<span id="twoWheelerLane3Available">0</span> available)</div>
+                                </div>
+                                <div class="lane-slots" id="twoWheelerLane3Slots"></div>
+                            </div>
+                            <div class="parking-lane" id="twoWheelerLane4">
+                                <div class="lane-header">
+                                    <div class="lane-title">Two-Wheeler Lane D</div>
+                                    <div class="lane-count">(<span id="twoWheelerLane4Available">0</span> available)</div>
+                                </div>
+                                <div class="lane-slots" id="twoWheelerLane4Slots"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Truck Lanes Section -->
+                    <div class="vehicle-section">
+                        <div class="section-header">
+                            <i class="fas fa-truck section-icon"></i>
+                            <h3>Truck Parking</h3>
+                            <div class="section-count">(<span id="truckAvailable">0</span> available)</div>
+                        </div>
+                        <div class="lanes-container">
+                            <div class="parking-lane" id="truckLane1">
+                                <div class="lane-header">
+                                    <div class="lane-title">Truck Lane A</div>
+                                    <div class="lane-count">(<span id="truckLane1Available">0</span> available)</div>
+                                </div>
+                                <div class="lane-slots" id="truckLane1Slots"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Summary -->
+                <div class="status-summary">
+                    <div class="status-card">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Available: <span id="availableCount">0</span></span>
+                    </div>
+                    <div class="status-card">
+                        <i class="fas fa-times-circle"></i>
+                        <span>Booked: <span id="bookedCount">0</span></span>
+                    </div>
+                    <div class="status-card">
+                        <i class="fas fa-car"></i>
+                        <span>Total: <span id="totalCount">0</span></span>
+                    </div>
+                </div>
+
+                <!-- Color Legend -->
+                <div class="color-legend">
+                    <h4>Slot Status Legend</h4>
+                    <div class="legend-items">
+                        <div class="legend-item">
+                            <div class="legend-color available"></div>
+                            <span>Available</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color booked"></div>
+                            <span>Occupied</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color reserved"></div>
+                            <span>Reserved</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color overstayed"></div>
+                            <span>Overstayed</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color vip"></div>
+                            <span>VIP</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Panel Section -->
+        <section id="admin" class="page">
+            <div class="container">
+                <h2>Admin Panel</h2>
+                <div class="admin-content">
+                    <div class="admin-section">
+                        <h3>Recent Bookings</h3>
+                        <div class="bookings-list" id="bookingsList">
+                            <!-- Bookings will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    <div class="admin-section">
+                        <h3>System Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <h4>Occupancy Rate</h4>
+                                <div class="stat-value" id="occupancyRate">0%</div>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Peak Hours</h4>
+                                <div class="stat-value">9:00 AM</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Booking Modal -->
+    <div id="bookingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Book Parking Slot</h3>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <form id="bookingForm" class="booking-form">
+                <div class="form-group">
+                    <label for="vehicleNumber">Vehicle Number *</label>
+                    <input type="text" id="vehicleNumber" required placeholder="e.g., ABC-1234">
+                </div>
+                <div class="form-group">
+                    <label for="vehicleType">Vehicle Type *</label>
+                    <select id="vehicleType" required>
+                        <option value="">Select Type</option>
+                        <option value="car">Car</option>
+                        <option value="motorcycle">Motorcycle</option>
+                        <option value="truck">Truck</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="driverName">Driver Name *</label>
+                    <input type="text" id="driverName" required placeholder="Enter driver name">
+                </div>
+                <div class="form-group">
+                    <label for="phoneNumber">Phone Number</label>
+                    <input type="tel" id="phoneNumber" placeholder="Enter phone number">
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority Level</label>
+                    <select id="priority">
+                        <option value="regular">Regular</option>
+                        <option value="premium">Premium</option>
+                        <option value="vip">VIP</option>
+                        <option value="emergency">Emergency</option>
+                        <option value="late">Late Arrival</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="plannedDuration">Planned Duration (minutes)</label>
+                    <input type="number" id="plannedDuration" placeholder="e.g., 120 (2 hours)" min="30" max="480">
+                    <small style="color: #a0aec0; font-size: 0.8rem;">Optional: Helps with slot management</small>
+                </div>
+                <div class="form-group">
+                    <label for="slotNumber">Preferred Slot</label>
+                    <select id="slotNumber">
+                        <option value="">Auto-assign</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelBooking">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Book Slot</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Release Modal -->
+    <div id="releaseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Release Parking Slot</h3>
+                <button class="close-btn" id="closeReleaseModal">&times;</button>
+            </div>
+            <form id="releaseForm" class="booking-form">
+                <div class="form-group">
+                    <label for="releaseVehicleNumber">Vehicle Number *</label>
+                    <input type="text" id="releaseVehicleNumber" required placeholder="Enter vehicle number to release">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelRelease">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Release Slot</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

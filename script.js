@@ -562,42 +562,7 @@ class ParkingSystem {
         // Start overstayed vehicle monitoring
         this.startOverstayedMonitoring();
         
-        // Demo advanced features
-        this.demoAdvancedFeatures();
-    }
-
-    demoAdvancedFeatures() {
-        console.log('=== Advanced Parking System Features Demo ===');
-        
-        // Demo reservation system
-        setTimeout(() => {
-            this.makeReservation('DEMO-001', 1, '2024-01-01 10:00', '2024-01-01 12:00', 'vip');
-            console.log('Demo: VIP reservation made for slot 1');
-        }, 2000);
-        
-        // Demo multi-level parking
-        setTimeout(() => {
-            const result = this.findNearestSlotWithBFS('car', 'ground');
-            console.log('Demo: Multi-level parking search result:', result);
-        }, 3000);
-        
-        // Demo waitlist system
-        setTimeout(() => {
-            const waitlistStatus = this.getWaitlistStatus();
-            console.log('Demo: Waitlist status:', waitlistStatus);
-        }, 4000);
-        
-        // Demo reporting system
-        setTimeout(() => {
-            const busiestHours = this.getBusiestHours();
-            console.log('Demo: Busiest hours:', busiestHours);
-        }, 5000);
-        
-        // Demo payment system
-        setTimeout(() => {
-            const revenueReport = this.generateRevenueReport();
-            console.log('Demo: Revenue report:', revenueReport);
-        }, 6000);
+        // Demo removed
     }
 
     initializeSlots() {
@@ -1483,43 +1448,4 @@ document.addEventListener('DOMContentLoaded', () => {
     window.parkingSystem = new ParkingSystem();
 });
 
-// Add some demo data for testing
-document.addEventListener('DOMContentLoaded', () => {
-    // Add some demo bookings after a short delay
-    setTimeout(() => {
-        if (window.parkingSystem) {
-            // Book a few demo slots
-            const demoBookings = [
-                { slotId: 1, vehicleNumber: 'ABC-1234', vehicleType: 'car', driverName: 'John Doe', phoneNumber: '123-456-7890' },
-                { slotId: 3, vehicleNumber: 'CAR-5678', vehicleType: 'car', driverName: 'Alice Brown', phoneNumber: '987-654-3210' },
-                { slotId: 5, vehicleNumber: 'SUV-9999', vehicleType: 'car', driverName: 'Bob Johnson', phoneNumber: '111-222-3333' },
-                { slotId: 21, vehicleNumber: 'BIKE-001', vehicleType: 'motorcycle', driverName: 'Mike Wilson', phoneNumber: '555-123-4567' },
-                { slotId: 25, vehicleNumber: 'MOTO-002', vehicleType: 'motorcycle', driverName: 'Sarah Davis', phoneNumber: '444-555-6666' },
-                { slotId: 30, vehicleNumber: 'SCOOT-01', vehicleType: 'motorcycle', driverName: 'Lisa Park', phoneNumber: '666-777-8888' },
-                { slotId: 61, vehicleNumber: 'TRUCK-01', vehicleType: 'truck', driverName: 'Tom Smith', phoneNumber: '777-888-9999' },
-                { slotId: 63, vehicleNumber: 'HAUL-02', vehicleType: 'truck', driverName: 'David Lee', phoneNumber: '999-000-1111' }
-            ];
-
-            demoBookings.forEach(booking => {
-                const slot = window.parkingSystem.parkingSlots.find(s => s.id === booking.slotId);
-                if (slot && slot.isAvailable) {
-                    slot.isAvailable = false;
-                    slot.vehicleNumber = booking.vehicleNumber;
-                    slot.vehicleType = booking.vehicleType;
-                    slot.driverName = booking.driverName;
-                    slot.phoneNumber = booking.phoneNumber;
-                    slot.bookingTime = new Date();
-
-                    window.parkingSystem.bookings.push({
-                        id: Date.now() + Math.random(),
-                        ...booking,
-                        bookingTime: slot.bookingTime
-                    });
-                }
-            });
-
-            window.parkingSystem.renderParkingGrid();
-            window.parkingSystem.updateStatus();
-        }
-    }, 1000);
-});
+// Demo data removed

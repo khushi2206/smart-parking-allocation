@@ -2,102 +2,40 @@
 
 // Advanced Data Structures for Enhanced Parking System
 
-// Min Heap for finding nearest available slot (DSA Concept)
-class MinHeap {
-    constructor() {
-        this.heap = [];
-    }
-    
-    insert(slot) {
-        this.heap.push(slot);
-        this.heapifyUp();
-    }
-    
-    extractMin() {
-        if (this.heap.length === 0) return null;
-        if (this.heap.length === 1) return this.heap.pop();
-        
-        const min = this.heap[0];
-        this.heap[0] = this.heap.pop();
-        this.heapifyDown();
-        return min;
-    }
-    
-    heapifyUp() {
-        let index = this.heap.length - 1;
-        while (index > 0) {
-            const parentIndex = Math.floor((index - 1) / 2);
-            if (this.heap[parentIndex].distance <= this.heap[index].distance) break;
-            [this.heap[parentIndex], this.heap[index]] = [this.heap[index], this.heap[parentIndex]];
-            index = parentIndex;
-        }
-    }
-    
-    heapifyDown() {
-        let index = 0;
-        while (true) {
-            let smallest = index;
-            const leftChild = 2 * index + 1;
-            const rightChild = 2 * index + 2;
-            
-            if (leftChild < this.heap.length && this.heap[leftChild].distance < this.heap[smallest].distance) {
-                smallest = leftChild;
-            }
-            if (rightChild < this.heap.length && this.heap[rightChild].distance < this.heap[smallest].distance) {
-                smallest = rightChild;
-            }
-            if (smallest === index) break;
-            
-            [this.heap[index], this.heap[smallest]] = [this.heap[smallest], this.heap[index]];
-            index = smallest;
-        }
-    }
-    
-    isEmpty() {
-        return this.heap.length === 0;
-    }
-}
+// Min Heap removed (unused)
 
-// Graph for Multi-Level Parking Navigation (DSA Concept)
+// Graph for Multi-Level Parking Navigation (BFS shortest path)
 class ParkingGraph {
     constructor() {
         this.adjacencyList = new Map();
         this.floors = new Map();
     }
-    
+
     addFloor(floorId, slots) {
         this.floors.set(floorId, slots);
-        this.adjacencyList.set(floorId, []);
+        if (!this.adjacencyList.has(floorId)) {
+            this.adjacencyList.set(floorId, []);
+        }
     }
-    
+
     addConnection(floor1, floor2, distance) {
         this.adjacencyList.get(floor1).push({ floor: floor2, distance });
         this.adjacencyList.get(floor2).push({ floor: floor1, distance });
     }
-    
-    // BFS to find shortest path to nearest available slot
+
     findNearestAvailableSlot(startFloor, vehicleType) {
         const queue = [{ floor: startFloor, distance: 0, path: [startFloor] }];
         const visited = new Set();
-        
         while (queue.length > 0) {
             const { floor, distance, path } = queue.shift();
-            
             if (visited.has(floor)) continue;
             visited.add(floor);
-            
-            // Check if current floor has available slots
+
             const availableSlots = this.getAvailableSlots(floor, vehicleType);
             if (availableSlots.length > 0) {
-                return {
-                    floor,
-                    slots: availableSlots,
-                    distance,
-                    path
-                };
+                return { floor, slots: availableSlots, distance, path };
             }
-            
-            // Add connected floors to queue
+
             const connections = this.adjacencyList.get(floor) || [];
             for (const connection of connections) {
                 if (!visited.has(connection.floor)) {
@@ -109,391 +47,95 @@ class ParkingGraph {
                 }
             }
         }
-        
         return null;
     }
-    
+
     getAvailableSlots(floorId, vehicleType) {
         const floor = this.floors.get(floorId);
         if (!floor) return [];
-        
-        return floor.filter(slot => 
-            slot.isAvailable && this.isCompatibleSlot(vehicleType, slot)
-        );
+        return floor.filter(slot => slot.isAvailable && this.isCompatibleSlot(vehicleType, slot));
     }
-    
+
     isCompatibleSlot(vehicleType, slot) {
         const compatibility = {
-            'car': ['car', 'truck'],
-            'motorcycle': ['twoWheeler', 'car'],
-            'truck': ['truck']
+            car: ['car', 'truck'],
+            motorcycle: ['twoWheeler', 'car'],
+            truck: ['truck']
         };
         return compatibility[vehicleType]?.includes(slot.lane);
     }
 }
 
-// Reservation System with Hash Maps (DSA Concept)
-class ReservationSystem {
-    constructor() {
-        this.reservations = new Map(); // vehicleId -> reservation
-        this.timeSlots = new Map(); // timeSlot -> reservations
-        this.priorityQueue = new PriorityQueue();
-    }
-    
-    makeReservation(vehicleId, slotId, startTime, endTime, priority = 'regular') {
-        const reservation = {
-            id: Date.now(),
-            vehicleId,
-            slotId,
-            startTime: new Date(startTime),
-            endTime: new Date(endTime),
-            priority,
-            status: 'pending'
-        };
-        
-        this.reservations.set(vehicleId, reservation);
-        this.priorityQueue.enqueue(reservation, this.getPriorityWeight(priority));
-        
-        return reservation;
-    }
-    
-    getPriorityWeight(priority) {
-        const weights = {
-            'emergency': 1,
-            'vip': 2,
-            'premium': 3,
-            'regular': 4
-        };
-        return weights[priority] || 4;
-    }
-    
-    getReservation(vehicleId) {
-        return this.reservations.get(vehicleId);
-    }
-    
-    cancelReservation(vehicleId) {
-        const reservation = this.reservations.get(vehicleId);
-        if (reservation) {
-            reservation.status = 'cancelled';
-            this.reservations.delete(vehicleId);
-            return true;
-        }
-        return false;
-    }
-}
+// ReservationSystem removed (unused)
 
-// Waitlist System with Queue and Linked List (DSA Concept)
-class WaitlistSystem {
-    constructor() {
-        this.waitingQueue = new PriorityQueue();
-        this.overflowList = new LinkedList();
-        this.maxCapacity = 100;
-    }
-    
-    addToWaitlist(vehicle) {
-        if (this.waitingQueue.size() < this.maxCapacity) {
-            this.waitingQueue.enqueue(vehicle, vehicle.priorityWeight);
-            return { status: 'queued', position: this.waitingQueue.size() };
-        } else {
-            this.overflowList.append(vehicle);
-            return { status: 'overflow', position: this.overflowList.size };
-        }
-    }
-    
-    processNextVehicle() {
-        if (!this.waitingQueue.isEmpty()) {
-            return this.waitingQueue.dequeue();
-        } else if (!this.overflowList.isEmpty()) {
-            return this.overflowList.removeFirst();
-        }
-        return null;
-    }
-    
-    getWaitlistStatus() {
-        return {
-            queued: this.waitingQueue.size(),
-            overflow: this.overflowList.size,
-            total: this.waitingQueue.size() + this.overflowList.size
-        };
-    }
-}
+// WaitlistSystem removed (unused)
 
-// Linked List for Overflow Management (DSA Concept)
-class LinkedList {
-    constructor() {
-        this.head = null;
-        this.tail = null;
-        this.size = 0;
-    }
-    
-    append(data) {
-        const newNode = new ListNode(data);
-        if (!this.head) {
-            this.head = newNode;
-            this.tail = newNode;
-        } else {
-            this.tail.next = newNode;
-            this.tail = newNode;
-        }
-        this.size++;
-    }
-    
-    removeFirst() {
-        if (!this.head) return null;
-        
-        const data = this.head.data;
-        this.head = this.head.next;
-        if (!this.head) this.tail = null;
-        this.size--;
-        return data;
-    }
-    
-    isEmpty() {
-        return this.size === 0;
-    }
-}
+// LinkedList and ListNode removed (unused)
 
-class ListNode {
-    constructor(data) {
-        this.data = data;
-        this.next = null;
-    }
-}
-
-// Vehicle Search and Reporting System (DSA Concept)
-class SearchAndReportingSystem {
-    constructor() {
-        this.vehicleToSlotMap = new Map(); // vehicleId -> slotId
-        this.slotToVehicleMap = new Map(); // slotId -> vehicleId
-        this.arrivalTimes = new Map(); // vehicleId -> arrivalTime
-        this.departureTimes = new Map(); // vehicleId -> departureTime
-        this.hourlyStats = new Map(); // hour -> count
-    }
-    
-    registerVehicle(vehicleId, slotId) {
-        this.vehicleToSlotMap.set(vehicleId, slotId);
-        this.slotToVehicleMap.set(slotId, vehicleId);
-        this.arrivalTimes.set(vehicleId, new Date());
-        
-        // Update hourly stats
-        const hour = new Date().getHours();
-        this.hourlyStats.set(hour, (this.hourlyStats.get(hour) || 0) + 1);
-    }
-    
-    findVehicleSlot(vehicleId) {
-        return this.vehicleToSlotMap.get(vehicleId);
-    }
-    
-    findSlotVehicle(slotId) {
-        return this.slotToVehicleMap.get(slotId);
-    }
-    
-    recordDeparture(vehicleId) {
-        this.departureTimes.set(vehicleId, new Date());
-    }
-    
-    getBusiestHours() {
-        const sortedHours = Array.from(this.hourlyStats.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
-        
-        return sortedHours.map(([hour, count]) => ({
-            hour: `${hour}:00`,
-            count,
-            percentage: (count / Array.from(this.hourlyStats.values()).reduce((a, b) => a + b, 0) * 100).toFixed(1)
-        }));
-    }
-    
-    getVehicleHistory(vehicleId) {
-        return {
-            slotId: this.vehicleToSlotMap.get(vehicleId),
-            arrivalTime: this.arrivalTimes.get(vehicleId),
-            departureTime: this.departureTimes.get(vehicleId)
-        };
-    }
-}
-
-// Payment and Billing System (DSA Concept)
+// Payment and Billing System in INR with overstay penalties
 class PaymentSystem {
     constructor() {
         this.billingInfo = new Map(); // vehicleId -> billing data
-        this.pricingRates = new Map(); // vehicleType -> rate per hour
-        this.initializePricing();
+        this.currency = '₹';
+        // Base rates per hour in INR
+        this.pricingRatesPerHour = new Map([
+            ['car', 100],
+            ['motorcycle', 50],
+            ['truck', 150]
+        ]);
+        // Overstay penalty rates per hour in INR
+        this.penaltyRatesPerHour = new Map([
+            ['car', 200],
+            ['motorcycle', 100],
+            ['truck', 300]
+        ]);
     }
-    
-    initializePricing() {
-        this.pricingRates.set('car', 2.0);
-        this.pricingRates.set('motorcycle', 1.0);
-        this.pricingRates.set('truck', 3.0);
+
+    estimateCharge(vehicleType, plannedDurationMinutes) {
+        if (!plannedDurationMinutes || plannedDurationMinutes <= 0) return null;
+        const rate = this.pricingRatesPerHour.get(vehicleType) || 100;
+        const hours = plannedDurationMinutes / 60;
+        const base = rate * hours;
+        return { currency: this.currency, ratePerHour: rate, hours, base: this._round(base) };
     }
-    
-    calculateCharges(vehicleId, vehicleType, startTime, endTime) {
-        const duration = (endTime - startTime) / (1000 * 60 * 60); // hours
-        const rate = this.pricingRates.get(vehicleType) || 2.0;
-        const baseCharge = duration * rate;
-        
-        // Apply discounts for longer stays
-        let discount = 0;
-        if (duration > 8) discount = 0.2; // 20% discount for 8+ hours
-        else if (duration > 4) discount = 0.1; // 10% discount for 4+ hours
-        
-        const finalCharge = baseCharge * (1 - discount);
-        
+
+    calculateFinal(vehicleId, vehicleType, startTime, plannedDurationMinutes, endTime) {
+        const rate = this.pricingRatesPerHour.get(vehicleType) || 100;
+        const penaltyRate = this.penaltyRatesPerHour.get(vehicleType) || 200;
+        const totalMinutes = (endTime - startTime) / (1000 * 60);
+        const plannedMinutes = Math.max(0, plannedDurationMinutes || 0);
+
+        const baseMinutes = Math.min(totalMinutes, plannedMinutes > 0 ? plannedMinutes : totalMinutes);
+        const overstayMinutes = Math.max(0, totalMinutes - plannedMinutes);
+
+        const base = rate * (baseMinutes / 60);
+        const penalty = overstayMinutes > 0 ? penaltyRate * (overstayMinutes / 60) : 0;
+        const total = base + penalty;
+
         const billingData = {
             vehicleId,
             vehicleType,
+            currency: this.currency,
             startTime,
             endTime,
-            duration: duration.toFixed(2),
-            rate,
-            baseCharge: baseCharge.toFixed(2),
-            discount: (discount * 100).toFixed(1) + '%',
-            finalCharge: finalCharge.toFixed(2)
+            plannedDurationMinutes: plannedMinutes,
+            totalMinutes: Number(totalMinutes.toFixed(2)),
+            base: this._round(base),
+            penalty: this._round(penalty),
+            total: this._round(total),
+            ratePerHour: rate,
+            penaltyRatePerHour: penaltyRate
         };
-        
         this.billingInfo.set(vehicleId, billingData);
         return billingData;
     }
-    
-    getBillingInfo(vehicleId) {
-        return this.billingInfo.get(vehicleId);
-    }
-    
-    generateRevenueReport() {
-        const totalRevenue = Array.from(this.billingInfo.values())
-            .reduce((sum, bill) => sum + parseFloat(bill.finalCharge), 0);
-        
-        const vehicleTypeRevenue = new Map();
-        for (const bill of this.billingInfo.values()) {
-            const current = vehicleTypeRevenue.get(bill.vehicleType) || 0;
-            vehicleTypeRevenue.set(bill.vehicleType, current + parseFloat(bill.finalCharge));
-        }
-        
-        return {
-            totalRevenue: totalRevenue.toFixed(2),
-            byVehicleType: Object.fromEntries(vehicleTypeRevenue),
-            totalTransactions: this.billingInfo.size
-        };
+
+    _round(num) {
+        return Math.round(num * 100) / 100;
     }
 }
 
-// Priority Queue Implementation (DS Concept)
-class PriorityQueue {
-    constructor() {
-        this.items = [];
-    }
-    
-    enqueue(item, priority) {
-        const queueElement = { item, priority };
-        let added = false;
-        
-        for (let i = 0; i < this.items.length; i++) {
-            if (queueElement.priority < this.items[i].priority) {
-                this.items.splice(i, 0, queueElement);
-                added = true;
-                break;
-            }
-        }
-        
-        if (!added) {
-            this.items.push(queueElement);
-        }
-    }
-    
-    dequeue() {
-        return this.items.shift();
-    }
-    
-    isEmpty() {
-        return this.items.length === 0;
-    }
-    
-    peek() {
-        return this.items[0];
-    }
-    
-    size() {
-        return this.items.length;
-    }
-    
-    get length() {
-        return this.items.length;
-    }
-}
-
-// Vehicle Priority System (OOP Concept)
-class Vehicle {
-    constructor(licensePlate, type, driverName, priority = 'regular') {
-        this.licensePlate = licensePlate;
-        this.type = type;
-        this.driverName = driverName;
-        this.priority = priority;
-        this.arrivalTime = new Date();
-        this.priorityWeight = this.getPriorityWeight();
-    }
-    
-    getPriorityWeight() {
-        const weights = {
-            'emergency': 1,    // Highest priority
-            'vip': 2,         // VIP customers
-            'premium': 3,     // Premium members
-            'regular': 4,     // Regular customers
-            'late': 5         // Late arrivals
-        };
-        return weights[this.priority] || 4;
-    }
-}
-
-// Dynamic Slot Allocator (OOP + DS)
-class DynamicSlotAllocator {
-    constructor() {
-        this.waitingQueue = new PriorityQueue();
-        this.availableSlots = new Map();
-        this.allocatedSlots = new Map();
-    }
-    
-    addVehicleToQueue(vehicle) {
-        // Add vehicle to priority queue
-        this.waitingQueue.enqueue(vehicle, vehicle.priorityWeight);
-        console.log(`Vehicle ${vehicle.licensePlate} added to queue with priority: ${vehicle.priority}`);
-    }
-    
-    allocateNextAvailableSlot() {
-        if (this.waitingQueue.isEmpty()) {
-            return null;
-        }
-        
-        const nextVehicle = this.waitingQueue.dequeue();
-        const availableSlot = this.findBestSlot(nextVehicle);
-        
-        if (availableSlot) {
-            this.allocatedSlots.set(availableSlot.id, nextVehicle);
-            this.availableSlots.delete(availableSlot.id);
-            return { vehicle: nextVehicle, slot: availableSlot };
-        }
-        
-        return null;
-    }
-    
-    findBestSlot(vehicle) {
-        // Find best slot based on vehicle type and availability
-        for (let [slotId, slot] of this.availableSlots) {
-            if (this.isCompatibleSlot(vehicle, slot)) {
-                return slot;
-            }
-        }
-        return null;
-    }
-    
-    isCompatibleSlot(vehicle, slot) {
-        const compatibility = {
-            'car': ['car', 'truck'],
-            'motorcycle': ['twoWheeler', 'car'],
-            'truck': ['truck']
-        };
-        return compatibility[vehicle.type]?.includes(slot.lane);
-    }
-}
+// PriorityQueue, Vehicle, and DynamicSlotAllocator removed (unused)
 
 class ParkingSystem {
     constructor() {
@@ -502,15 +144,9 @@ class ParkingSystem {
         this.bookings = [];
         this.selectedSlot = null;
         
-        // Initialize advanced systems
-        this.dynamicAllocator = new DynamicSlotAllocator();
-        this.waitingVehicles = [];
+        // Subsystems
         this.parkingGraph = new ParkingGraph();
-        this.reservationSystem = new ReservationSystem();
-        this.waitlistSystem = new WaitlistSystem();
-        this.searchSystem = new SearchAndReportingSystem();
         this.paymentSystem = new PaymentSystem();
-        this.minHeap = new MinHeap();
         
         // Lane configuration
         this.lanes = {
@@ -546,57 +182,18 @@ class ParkingSystem {
 
     init() {
         this.initializeSlots();
+        this.initializeMultiLevelParking();
         this.renderParkingGrid();
         this.bindEvents();
         this.updateStatus();
         this.populateSlotOptions();
         
-        // Initialize advanced features
-        this.initializeMultiLevelParking();
-        
-        // Start dynamic simulation
-        this.simulateDynamicArrivals();
-        
         // Start overstayed vehicle monitoring
         this.startOverstayedMonitoring();
         
-        // Demo advanced features
-        this.demoAdvancedFeatures();
     }
 
-    demoAdvancedFeatures() {
-        console.log('=== Advanced Parking System Features Demo ===');
-        
-        // Demo reservation system
-        setTimeout(() => {
-            this.makeReservation('DEMO-001', 1, '2024-01-01 10:00', '2024-01-01 12:00', 'vip');
-            console.log('Demo: VIP reservation made for slot 1');
-        }, 2000);
-        
-        // Demo multi-level parking
-        setTimeout(() => {
-            const result = this.findNearestSlotWithBFS('car', 'ground');
-            console.log('Demo: Multi-level parking search result:', result);
-        }, 3000);
-        
-        // Demo waitlist system
-        setTimeout(() => {
-            const waitlistStatus = this.getWaitlistStatus();
-            console.log('Demo: Waitlist status:', waitlistStatus);
-        }, 4000);
-        
-        // Demo reporting system
-        setTimeout(() => {
-            const busiestHours = this.getBusiestHours();
-            console.log('Demo: Busiest hours:', busiestHours);
-        }, 5000);
-        
-        // Demo payment system
-        setTimeout(() => {
-            const revenueReport = this.generateRevenueReport();
-            console.log('Demo: Revenue report:', revenueReport);
-        }, 6000);
-    }
+    // Advanced features demo removed
 
     initializeSlots() {
         this.parkingSlots = [];
@@ -657,6 +254,12 @@ class ParkingSystem {
         }
     }
 
+    initializeMultiLevelParking() {
+        this.parkingGraph.addFloor('ground', this.parkingSlots.slice(0, 35));
+        this.parkingGraph.addFloor('first', this.parkingSlots.slice(35, 70));
+        this.parkingGraph.addConnection('ground', 'first', 1);
+    }
+
     renderParkingGrid() {
         // Render each vehicle type section
         Object.keys(this.lanes).forEach(vehicleType => {
@@ -699,24 +302,18 @@ class ParkingSystem {
 
     getSlotStatusClass(slot) {
         if (slot.isAvailable) {
-            if (slot.status === 'reserved') return 'reserved';
             return 'available';
-        } else {
-            if (slot.priority === 'vip') return 'vip';
-            if (this.isOverstayed(slot)) return 'overstayed';
-            return 'booked';
         }
+        if (slot.priority === 'vip') return 'vip';
+        if (this.isOverstayed(slot)) return 'overstayed';
+        return 'booked';
     }
 
     getSlotStatusText(slot) {
-        if (slot.isAvailable) {
-            if (slot.status === 'reserved') return 'Reserved';
-            return 'Available';
-        } else {
-            if (this.isOverstayed(slot)) return 'Overstayed';
-            if (slot.priority === 'vip') return 'VIP';
-            return 'Occupied';
-        }
+        if (slot.isAvailable) return 'Available';
+        if (this.isOverstayed(slot)) return 'Overstayed';
+        if (slot.priority === 'vip') return 'VIP';
+        return 'Occupied';
     }
 
     isOverstayed(slot) {
@@ -727,7 +324,7 @@ class ParkingSystem {
         return elapsedTime > slot.plannedDuration;
     }
 
-    // Enhanced slot allocation with planned duration
+    // Enhanced slot allocation with planned duration and cost estimate
     allocateSlotWithDuration(slot, vehicleData, plannedDuration = null) {
         slot.isAvailable = false;
         slot.vehicleNumber = vehicleData.vehicleNumber;
@@ -738,16 +335,13 @@ class ParkingSystem {
         slot.priority = vehicleData.priority || 'regular';
         slot.status = 'occupied';
 
-        // Register with search system
-        this.registerVehicleArrival(vehicleData.vehicleNumber, slot.id);
-
-        // Calculate charges with planned duration
-        const startTime = slot.bookingTime;
-        const endTime = plannedDuration ? 
-            new Date(startTime.getTime() + plannedDuration * 60 * 1000) :
-            new Date(startTime.getTime() + 2 * 60 * 60 * 1000); // 2 hours default
-        
-        this.calculateParkingCharges(vehicleData.vehicleNumber, vehicleData.vehicleType, startTime, endTime);
+        // Show estimated base cost if planned duration provided
+        if (this.paymentSystem && plannedDuration) {
+            const estimate = this.paymentSystem.estimateCharge(slot.vehicleType, plannedDuration);
+            if (estimate) {
+                this.showMessage(`Estimated base: ${estimate.currency}${estimate.base.toFixed(2)} for ${plannedDuration} min (rate ${estimate.currency}${estimate.ratePerHour}/hr). Penalty on overstay: ${estimate.currency}${this.paymentSystem.penaltyRatesPerHour.get(slot.vehicleType) || 0}/hr.`, 'success');
+            }
+        }
 
         this.renderParkingGrid();
         this.updateStatus();
@@ -771,6 +365,14 @@ class ParkingSystem {
         setInterval(() => {
             this.checkOverstayedVehicles();
         }, 60000); // 60 seconds
+    }
+
+    findNearestSlotWithBFS(vehicleType, startFloor = 'ground') {
+        const result = this.parkingGraph.findNearestAvailableSlot(startFloor, vehicleType);
+        if (result && result.slots.length > 0) {
+            return result.slots[0];
+        }
+        return null;
     }
 
     selectSlot(slotId) {
@@ -933,299 +535,7 @@ class ParkingSystem {
         });
     }
 
-    // Simulate dynamic vehicle arrivals (DS + OOP Concept)
-    simulateDynamicArrivals() {
-        const vehicleTypes = ['car', 'motorcycle', 'truck'];
-        const priorities = ['emergency', 'vip', 'premium', 'regular', 'late'];
-        const names = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Brown', 'Mike Wilson'];
-        
-        // Simulate random vehicle arrivals
-        setInterval(() => {
-            if (Math.random() < 0.3) { // 30% chance every interval
-                const randomType = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-                const randomPriority = priorities[Math.floor(Math.random() * priorities.length)];
-                const randomName = names[Math.floor(Math.random() * names.length)];
-                const randomPlate = this.generateRandomPlate();
-                
-                const vehicle = new Vehicle(randomPlate, randomType, randomName, randomPriority);
-                this.addVehicleToQueue(vehicle);
-            }
-        }, 5000); // Every 5 seconds
-    }
-    
-    generateRandomPlate() {
-        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        const numbers = '0123456789';
-        let plate = '';
-        for (let i = 0; i < 3; i++) {
-            plate += letters.charAt(Math.floor(Math.random() * letters.length));
-        }
-        plate += '-';
-        for (let i = 0; i < 4; i++) {
-            plate += numbers.charAt(Math.floor(Math.random() * numbers.length));
-        }
-        return plate;
-    }
-    
-    addVehicleToQueue(vehicle) {
-        this.dynamicAllocator.addVehicleToQueue(vehicle);
-        this.waitingVehicles.push(vehicle);
-        this.updateWaitingQueueDisplay();
-        this.attemptAutoAllocation();
-    }
-    
-    attemptAutoAllocation() {
-        const allocation = this.dynamicAllocator.allocateNextAvailableSlot();
-        if (allocation) {
-            this.autoBookSlot(allocation.vehicle, allocation.slot);
-        }
-    }
-    
-    autoBookSlot(vehicle, slot) {
-        // Auto-book the slot for the vehicle
-        slot.isAvailable = false;
-        slot.vehicleNumber = vehicle.licensePlate;
-        slot.vehicleType = vehicle.type;
-        slot.driverName = vehicle.driverName;
-        slot.bookingTime = new Date();
-        
-        // Add to bookings
-        this.bookings.unshift({
-            id: Date.now(),
-            slotId: slot.id,
-            vehicleNumber: vehicle.licensePlate,
-            vehicleType: vehicle.type,
-            driverName: vehicle.driverName,
-            bookingTime: slot.bookingTime,
-            priority: vehicle.priority
-        });
-        
-        this.renderParkingGrid();
-        this.updateStatus();
-        this.showMessage(`Auto-allocated Slot ${slot.id} to ${vehicle.licensePlate} (${vehicle.priority} priority)`, 'success');
-    }
-    
-    updateWaitingQueueDisplay() {
-        // Update UI to show waiting vehicles
-        const queueInfo = document.getElementById('queueInfo') || this.createQueueDisplay();
-        queueInfo.innerHTML = `
-            <h4>Waiting Queue (${this.waitingVehicles.length} vehicles)</h4>
-            <div class="queue-list">
-                ${this.waitingVehicles.map(vehicle => `
-                    <div class="queue-item priority-${vehicle.priority}">
-                        <span class="vehicle-plate">${vehicle.licensePlate}</span>
-                        <span class="vehicle-type">${vehicle.type}</span>
-                        <span class="vehicle-priority">${vehicle.priority}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-    
-    createQueueDisplay() {
-        const queueDiv = document.createElement('div');
-        queueDiv.id = 'queueInfo';
-        queueDiv.className = 'queue-display';
-        document.querySelector('.dashboard-header').appendChild(queueDiv);
-        return queueDiv;
-    }
-
-    // Advanced Features Implementation
-
-    // 1. Dynamic Slot Assignment with Min Heap
-    findNearestAvailableSlot(vehicleType, preferredLane = null) {
-        const availableSlots = this.parkingSlots.filter(slot => 
-            slot.isAvailable && this.isCompatibleSlot(vehicleType, slot)
-        );
-
-        if (availableSlots.length === 0) return null;
-
-        // Calculate distances and add to min heap
-        availableSlots.forEach(slot => {
-            const distance = this.calculateDistance(slot, preferredLane);
-            this.minHeap.insert({ ...slot, distance });
-        });
-
-        return this.minHeap.extractMin();
-    }
-
-    calculateDistance(slot, preferredLane) {
-        if (!preferredLane) return 0;
-        
-        // Simple distance calculation based on lane and slot position
-        const laneDistance = slot.lane === preferredLane ? 0 : 1;
-        const slotDistance = slot.id % 10; // Distance within lane
-        return laneDistance + slotDistance;
-    }
-
-    isCompatibleSlot(vehicleType, slot) {
-        const compatibility = {
-            'car': ['car', 'truck'],
-            'motorcycle': ['twoWheeler', 'car'],
-            'truck': ['truck']
-        };
-        return compatibility[vehicleType]?.includes(slot.lane);
-    }
-
-    // 2. Multi-Level Parking with Graph Navigation
-    initializeMultiLevelParking() {
-        // Add floors to the graph
-        this.parkingGraph.addFloor('ground', this.parkingSlots.slice(0, 35));
-        this.parkingGraph.addFloor('first', this.parkingSlots.slice(35, 70));
-        
-        // Add connections between floors
-        this.parkingGraph.addConnection('ground', 'first', 1);
-        
-        console.log('Multi-level parking initialized with 2 floors');
-    }
-
-    findNearestSlotWithBFS(vehicleType, startFloor = 'ground') {
-        const result = this.parkingGraph.findNearestAvailableSlot(startFloor, vehicleType);
-        if (result) {
-            console.log(`Found available slots on floor ${result.floor} with distance ${result.distance}`);
-            console.log(`Path: ${result.path.join(' -> ')}`);
-        }
-        return result;
-    }
-
-    // 3. Reservation System
-    makeReservation(vehicleId, slotId, startTime, endTime, priority = 'regular') {
-        const reservation = this.reservationSystem.makeReservation(
-            vehicleId, slotId, startTime, endTime, priority
-        );
-        
-        console.log(`Reservation made for vehicle ${vehicleId} at slot ${slotId}`);
-        return reservation;
-    }
-
-    checkReservation(vehicleId) {
-        return this.reservationSystem.getReservation(vehicleId);
-    }
-
-    cancelReservation(vehicleId) {
-        return this.reservationSystem.cancelReservation(vehicleId);
-    }
-
-    // 4. Waitlist and Overflow Management
-    addToWaitlist(vehicle) {
-        const result = this.waitlistSystem.addToWaitlist(vehicle);
-        console.log(`Vehicle ${vehicle.licensePlate} added to waitlist: ${result.status}`);
-        return result;
-    }
-
-    processWaitlist() {
-        const nextVehicle = this.waitlistSystem.processNextVehicle();
-        if (nextVehicle) {
-            console.log(`Processing vehicle from waitlist: ${nextVehicle.licensePlate}`);
-            return nextVehicle;
-        }
-        return null;
-    }
-
-    getWaitlistStatus() {
-        return this.waitlistSystem.getWaitlistStatus();
-    }
-
-    // 5. Vehicle Search and Reporting
-    findVehicle(vehicleId) {
-        const slotId = this.searchSystem.findVehicleSlot(vehicleId);
-        if (slotId) {
-            const slot = this.parkingSlots.find(s => s.id === slotId);
-            return { slotId, slot, history: this.searchSystem.getVehicleHistory(vehicleId) };
-        }
-        return null;
-    }
-
-    registerVehicleArrival(vehicleId, slotId) {
-        this.searchSystem.registerVehicle(vehicleId, slotId);
-        console.log(`Vehicle ${vehicleId} registered at slot ${slotId}`);
-    }
-
-    recordVehicleDeparture(vehicleId) {
-        this.searchSystem.recordDeparture(vehicleId);
-        console.log(`Vehicle ${vehicleId} departure recorded`);
-    }
-
-    getBusiestHours() {
-        return this.searchSystem.getBusiestHours();
-    }
-
-    // 6. Payment and Billing
-    calculateParkingCharges(vehicleId, vehicleType, startTime, endTime) {
-        const billingData = this.paymentSystem.calculateCharges(vehicleId, vehicleType, startTime, endTime);
-        console.log(`Charges calculated for vehicle ${vehicleId}: $${billingData.finalCharge}`);
-        return billingData;
-    }
-
-    getBillingInfo(vehicleId) {
-        return this.paymentSystem.getBillingInfo(vehicleId);
-    }
-
-    generateRevenueReport() {
-        return this.paymentSystem.generateRevenueReport();
-    }
-
-    // Enhanced booking with all advanced features
-    processAdvancedBooking(vehicleData) {
-        const { vehicleNumber, vehicleType, driverName, priority = 'regular' } = vehicleData;
-        
-        // 1. Check for existing reservation
-        const reservation = this.checkReservation(vehicleNumber);
-        if (reservation && reservation.status === 'pending') {
-            console.log('Using existing reservation');
-            return this.fulfillReservation(reservation);
-        }
-
-        // 2. Find nearest available slot using Min Heap
-        const nearestSlot = this.findNearestAvailableSlot(vehicleType);
-        if (nearestSlot) {
-            return this.allocateSlot(nearestSlot, vehicleData);
-        }
-
-        // 3. If no slots available, add to waitlist
-        const vehicle = new Vehicle(vehicleNumber, vehicleType, driverName, priority);
-        const waitlistResult = this.addToWaitlist(vehicle);
-        
-        if (waitlistResult.status === 'overflow') {
-            console.log('Parking is full and waitlist is at capacity');
-            return { status: 'overflow', message: 'Parking is completely full' };
-        }
-
-        return { status: 'waitlisted', position: waitlistResult.position };
-    }
-
-    allocateSlot(slot, vehicleData) {
-        slot.isAvailable = false;
-        slot.vehicleNumber = vehicleData.vehicleNumber;
-        slot.vehicleType = vehicleData.vehicleType;
-        slot.driverName = vehicleData.driverName;
-        slot.bookingTime = new Date();
-
-        // Register with search system
-        this.registerVehicleArrival(vehicleData.vehicleNumber, slot.id);
-
-        // Calculate charges
-        const startTime = slot.bookingTime;
-        const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000); // 2 hours default
-        this.calculateParkingCharges(vehicleData.vehicleNumber, vehicleData.vehicleType, startTime, endTime);
-
-        this.renderParkingGrid();
-        this.updateStatus();
-        
-        return { status: 'allocated', slot: slot.id };
-    }
-
-    fulfillReservation(reservation) {
-        const slot = this.parkingSlots.find(s => s.id === reservation.slotId);
-        if (slot && slot.isAvailable) {
-            return this.allocateSlot(slot, {
-                vehicleNumber: reservation.vehicleId,
-                vehicleType: 'car', // Default, should be stored in reservation
-                driverName: 'Reserved User'
-            });
-        }
-        return { status: 'reservation_conflict', message: 'Reserved slot is no longer available' };
-    }
+    // Dynamic simulation and other advanced features removed
 
     processBooking() {
         const formData = {
@@ -1263,17 +573,13 @@ class ParkingSystem {
                 return;
             }
         } else {
-            // Auto-assign based on vehicle type
-            const preferredLane = this.getPreferredLane(formData.vehicleType);
-            targetSlot = this.parkingSlots.find(slot => 
-                slot.lane === preferredLane && slot.isAvailable
-            );
-            
-            // If preferred lane is full, try other lanes
+            // Auto-assign using graph BFS shortest path
+            targetSlot = this.findNearestSlotWithBFS(formData.vehicleType, 'ground');
             if (!targetSlot) {
-                targetSlot = this.parkingSlots.find(slot => slot.isAvailable);
+                const preferredLane = this.getPreferredLane(formData.vehicleType);
+                targetSlot = this.parkingSlots.find(slot => slot.lane === preferredLane && slot.isAvailable)
+                    || this.parkingSlots.find(slot => slot.isAvailable);
             }
-            
             if (!targetSlot) {
                 this.showMessage('No available slots!', 'error');
                 return;
@@ -1298,7 +604,16 @@ class ParkingSystem {
         this.renderParkingGrid();
         this.updateStatus();
         this.hideBookingModal();
-        this.showMessage(`Slot ${targetSlot.id} booked successfully for ${formData.vehicleNumber}!`, 'success');
+        if (this.paymentSystem && formData.plannedDuration) {
+            const est = this.paymentSystem.estimateCharge(formData.vehicleType, formData.plannedDuration);
+            if (est) {
+                this.showMessage(`Slot ${targetSlot.id} booked for ${formData.vehicleNumber}. Estimated: ${est.currency}${est.base.toFixed(2)} for ${formData.plannedDuration} min.`, 'success');
+            } else {
+                this.showMessage(`Slot ${targetSlot.id} booked successfully for ${formData.vehicleNumber}!`, 'success');
+            }
+        } else {
+            this.showMessage(`Slot ${targetSlot.id} booked successfully for ${formData.vehicleNumber}!`, 'success');
+        }
     }
 
     processRelease() {
@@ -1319,20 +634,37 @@ class ParkingSystem {
             return;
         }
 
-        // Release the slot
+        // Compute billing before releasing (INR and penalties for overstay)
         const slotId = slot.id;
+        const endTime = new Date();
+        if (this.paymentSystem && slot.bookingTime) {
+            const billing = this.paymentSystem.calculateFinal(
+                slot.vehicleNumber,
+                slot.vehicleType,
+                slot.bookingTime,
+                slot.plannedDuration || 0,
+                endTime
+            );
+            const penaltyText = billing.penalty > 0 ? `, penalty ${billing.currency}${billing.penalty.toFixed(2)}` : '';
+            this.showMessage(`Slot ${slotId} released. Charge: ${billing.currency}${billing.total.toFixed(2)} (base ${billing.currency}${billing.base.toFixed(2)}${penaltyText}).`, 'success');
+        } else {
+            this.showMessage(`Slot ${slotId} released successfully!`, 'success');
+        }
+
+        // Release the slot
         slot.isAvailable = true;
         slot.vehicleNumber = null;
         slot.vehicleType = null;
         slot.driverName = null;
         slot.phoneNumber = null;
         slot.bookingTime = null;
+        slot.plannedDuration = null;
+        slot.status = 'available';
 
         // Update UI
         this.renderParkingGrid();
         this.updateStatus();
         this.hideReleaseModal();
-        this.showMessage(`Slot ${slotId} released successfully!`, 'success');
     }
 
     updateStatus() {
@@ -1455,43 +787,31 @@ document.addEventListener('DOMContentLoaded', () => {
     window.parkingSystem = new ParkingSystem();
 });
 
-// Add some demo data for testing
+// Minimal demo data: keep only 2 entries for quick visualization
 document.addEventListener('DOMContentLoaded', () => {
-    // Add some demo bookings after a short delay
     setTimeout(() => {
-        if (window.parkingSystem) {
-            // Book a few demo slots
-            const demoBookings = [
-                { slotId: 1, vehicleNumber: 'ABC-1234', vehicleType: 'car', driverName: 'John Doe', phoneNumber: '123-456-7890' },
-                { slotId: 3, vehicleNumber: 'CAR-5678', vehicleType: 'car', driverName: 'Alice Brown', phoneNumber: '987-654-3210' },
-                { slotId: 5, vehicleNumber: 'SUV-9999', vehicleType: 'car', driverName: 'Bob Johnson', phoneNumber: '111-222-3333' },
-                { slotId: 21, vehicleNumber: 'BIKE-001', vehicleType: 'motorcycle', driverName: 'Mike Wilson', phoneNumber: '555-123-4567' },
-                { slotId: 25, vehicleNumber: 'MOTO-002', vehicleType: 'motorcycle', driverName: 'Sarah Davis', phoneNumber: '444-555-6666' },
-                { slotId: 30, vehicleNumber: 'SCOOT-01', vehicleType: 'motorcycle', driverName: 'Lisa Park', phoneNumber: '666-777-8888' },
-                { slotId: 61, vehicleNumber: 'TRUCK-01', vehicleType: 'truck', driverName: 'Tom Smith', phoneNumber: '777-888-9999' },
-                { slotId: 63, vehicleNumber: 'HAUL-02', vehicleType: 'truck', driverName: 'David Lee', phoneNumber: '999-000-1111' }
-            ];
-
-            demoBookings.forEach(booking => {
-                const slot = window.parkingSystem.parkingSlots.find(s => s.id === booking.slotId);
-                if (slot && slot.isAvailable) {
-                    slot.isAvailable = false;
-                    slot.vehicleNumber = booking.vehicleNumber;
-                    slot.vehicleType = booking.vehicleType;
-                    slot.driverName = booking.driverName;
-                    slot.phoneNumber = booking.phoneNumber;
-                    slot.bookingTime = new Date();
-
-                    window.parkingSystem.bookings.push({
-                        id: Date.now() + Math.random(),
-                        ...booking,
-                        bookingTime: slot.bookingTime
-                    });
-                }
-            });
-
-            window.parkingSystem.renderParkingGrid();
-            window.parkingSystem.updateStatus();
-        }
-    }, 1000);
+        if (!window.parkingSystem) return;
+        const demoBookings = [
+            { slotId: 1, vehicleNumber: 'ABC-1234', vehicleType: 'car', driverName: 'John Doe', phoneNumber: '123-456-7890' },
+            { slotId: 21, vehicleNumber: 'BIKE-001', vehicleType: 'motorcycle', driverName: 'Mike Wilson', phoneNumber: '555-123-4567' }
+        ];
+        demoBookings.forEach(booking => {
+            const slot = window.parkingSystem.parkingSlots.find(s => s.id === booking.slotId);
+            if (slot && slot.isAvailable) {
+                slot.isAvailable = false;
+                slot.vehicleNumber = booking.vehicleNumber;
+                slot.vehicleType = booking.vehicleType;
+                slot.driverName = booking.driverName;
+                slot.phoneNumber = booking.phoneNumber;
+                slot.bookingTime = new Date();
+                window.parkingSystem.bookings.push({
+                    id: Date.now() + Math.random(),
+                    ...booking,
+                    bookingTime: slot.bookingTime
+                });
+            }
+        });
+        window.parkingSystem.renderParkingGrid();
+        window.parkingSystem.updateStatus();
+    }, 500);
 });

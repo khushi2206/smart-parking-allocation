@@ -321,16 +321,7 @@ body {
     background: #c0392b;
 }
 
-.parking-slot.reserved {
-    background: #f39c12;
-    border-color: #e67e22;
-    color: #ffffff;
-    animation: pulse 2s infinite;
-}
-
-.parking-slot.reserved:hover {
-    background: #e67e22;
-}
+/* reserved status removed */
 
 .parking-slot.overstayed {
     background: #e67e22;
@@ -767,74 +758,7 @@ body {
 }
 
 /* Queue Display */
-.queue-display {
-    background: rgba(45, 55, 72, 0.8);
-    border-radius: 10px;
-    padding: 1rem;
-    margin-top: 1rem;
-    border: 1px solid rgba(64, 150, 255, 0.2);
-}
-
-.queue-display h4 {
-    color: #e0e6ed;
-    margin-bottom: 0.5rem;
-    font-size: 1rem;
-}
-
-.queue-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.queue-item {
-    background: #2d3748;
-    padding: 0.5rem;
-    border-radius: 6px;
-    display: flex;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    border-left: 3px solid #4096ff;
-}
-
-.queue-item.priority-emergency {
-    border-left-color: #e53e3e;
-    background: rgba(229, 62, 62, 0.1);
-}
-
-.queue-item.priority-vip {
-    border-left-color: #f39c12;
-    background: rgba(243, 156, 18, 0.1);
-}
-
-.queue-item.priority-premium {
-    border-left-color: #9f7aea;
-    background: rgba(159, 122, 234, 0.1);
-}
-
-.queue-item.priority-regular {
-    border-left-color: #4096ff;
-    background: rgba(64, 150, 255, 0.1);
-}
-
-.queue-item.priority-late {
-    border-left-color: #a0aec0;
-    background: rgba(160, 174, 192, 0.1);
-}
-
-.vehicle-plate {
-    font-weight: bold;
-    color: #e0e6ed;
-}
-
-.vehicle-type {
-    color: #a0aec0;
-}
-
-.vehicle-priority {
-    color: #4096ff;
-    font-weight: 600;
-}
+/* queue UI removed */
 
 /* Color Legend */
 .color-legend {
@@ -882,10 +806,7 @@ body {
     border-color: #c0392b;
 }
 
-.legend-color.reserved {
-    background: #f39c12;
-    border-color: #e67e22;
-}
+/* reserved legend removed */
 
 .legend-color.overstayed {
     background: #e67e22;

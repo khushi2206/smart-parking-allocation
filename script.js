@@ -72,9 +72,7 @@ class ParkingGraph {
 
 // LinkedList and ListNode removed (unused)
 
-// SearchAndReportingSystem removed (unused)
-
-// PaymentSystem removed (unused)
+// PaymentSystem will be reintroduced below
 
 // PriorityQueue, Vehicle, and DynamicSlotAllocator removed (unused)
 

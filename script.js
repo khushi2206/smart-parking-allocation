@@ -4,7 +4,67 @@
 
 // Min Heap removed (unused)
 
-// ParkingGraph removed (unused)
+// Graph for Multi-Level Parking Navigation (BFS shortest path)
+class ParkingGraph {
+    constructor() {
+        this.adjacencyList = new Map();
+        this.floors = new Map();
+    }
+
+    addFloor(floorId, slots) {
+        this.floors.set(floorId, slots);
+        if (!this.adjacencyList.has(floorId)) {
+            this.adjacencyList.set(floorId, []);
+        }
+    }
+
+    addConnection(floor1, floor2, distance) {
+        this.adjacencyList.get(floor1).push({ floor: floor2, distance });
+        this.adjacencyList.get(floor2).push({ floor: floor1, distance });
+    }
+
+    findNearestAvailableSlot(startFloor, vehicleType) {
+        const queue = [{ floor: startFloor, distance: 0, path: [startFloor] }];
+        const visited = new Set();
+        while (queue.length > 0) {
+            const { floor, distance, path } = queue.shift();
+            if (visited.has(floor)) continue;
+            visited.add(floor);
+
+            const availableSlots = this.getAvailableSlots(floor, vehicleType);
+            if (availableSlots.length > 0) {
+                return { floor, slots: availableSlots, distance, path };
+            }
+
+            const connections = this.adjacencyList.get(floor) || [];
+            for (const connection of connections) {
+                if (!visited.has(connection.floor)) {
+                    queue.push({
+                        floor: connection.floor,
+                        distance: distance + connection.distance,
+                        path: [...path, connection.floor]
+                    });
+                }
+            }
+        }
+        return null;
+    }
+
+    getAvailableSlots(floorId, vehicleType) {
+        const floor = this.floors.get(floorId);
+        if (!floor) return [];
+        return floor.filter(slot => slot.isAvailable && this.isCompatibleSlot(vehicleType, slot));
+    }
+
+    isCompatibleSlot(vehicleType, slot) {
+        const compatibility = {
+            car: ['car', 'truck'],
+            motorcycle: ['twoWheeler', 'car'],
+            truck: ['truck']
+        };
+        return compatibility[vehicleType]?.includes(slot.lane);
+    }
+}
 
 // ReservationSystem removed (unused)
 

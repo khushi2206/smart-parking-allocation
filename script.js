@@ -85,7 +85,9 @@ class ParkingSystem {
         this.bookings = [];
         this.selectedSlot = null;
         
-        // Core subsystems removed (search/reporting, payment)
+        // Subsystems
+        this.parkingGraph = new ParkingGraph();
+        this.paymentSystem = new PaymentSystem();
         
         // Lane configuration
         this.lanes = {
@@ -121,6 +123,7 @@ class ParkingSystem {
 
     init() {
         this.initializeSlots();
+        this.initializeMultiLevelParking();
         this.renderParkingGrid();
         this.bindEvents();
         this.updateStatus();
@@ -192,6 +195,12 @@ class ParkingSystem {
         }
     }
 
+    initializeMultiLevelParking() {
+        this.parkingGraph.addFloor('ground', this.parkingSlots.slice(0, 35));
+        this.parkingGraph.addFloor('first', this.parkingSlots.slice(35, 70));
+        this.parkingGraph.addConnection('ground', 'first', 1);
+    }
+
     renderParkingGrid() {
         // Render each vehicle type section
         Object.keys(this.lanes).forEach(vehicleType => {
@@ -256,7 +265,7 @@ class ParkingSystem {
         return elapsedTime > slot.plannedDuration;
     }
 
-    // Enhanced slot allocation with planned duration
+    // Enhanced slot allocation with planned duration and cost estimate
     allocateSlotWithDuration(slot, vehicleData, plannedDuration = null) {
         slot.isAvailable = false;
         slot.vehicleNumber = vehicleData.vehicleNumber;
@@ -267,7 +276,13 @@ class ParkingSystem {
         slot.priority = vehicleData.priority || 'regular';
         slot.status = 'occupied';
 
-        // Pricing and search/reporting removed
+        // Show estimated base cost if planned duration provided
+        if (this.paymentSystem && plannedDuration) {
+            const estimate = this.paymentSystem.estimateCharge(slot.vehicleType, plannedDuration);
+            if (estimate) {
+                this.showMessage(`Estimated base: ${estimate.currency}${estimate.base.toFixed(2)} for ${plannedDuration} min (rate ${estimate.currency}${estimate.ratePerHour}/hr). Penalty on overstay: ${estimate.currency}${this.paymentSystem.penaltyRatesPerHour.get(slot.vehicleType) || 0}/hr.`, 'success');
+            }
+        }
 
         this.renderParkingGrid();
         this.updateStatus();
@@ -291,6 +306,14 @@ class ParkingSystem {
         setInterval(() => {
             this.checkOverstayedVehicles();
         }, 60000); // 60 seconds
+    }
+
+    findNearestSlotWithBFS(vehicleType, startFloor = 'ground') {
+        const result = this.parkingGraph.findNearestAvailableSlot(startFloor, vehicleType);
+        if (result && result.slots.length > 0) {
+            return result.slots[0];
+        }
+        return null;
     }
 
     selectSlot(slotId) {
@@ -453,11 +476,7 @@ class ParkingSystem {
         });
     }
 
-    // Dynamic simulation and wait queue removed
-
-    // Advanced features (MinHeap/Graph/Reservations/Waitlist/Search/Payment) removed
-
-    // Advanced booking/reservations removed
+    // Dynamic simulation and other advanced features removed
 
     processBooking() {
         const formData = {
@@ -495,17 +514,13 @@ class ParkingSystem {
                 return;
             }
         } else {
-            // Auto-assign based on vehicle type
-            const preferredLane = this.getPreferredLane(formData.vehicleType);
-            targetSlot = this.parkingSlots.find(slot => 
-                slot.lane === preferredLane && slot.isAvailable
-            );
-            
-            // If preferred lane is full, try other lanes
+            // Auto-assign using graph BFS shortest path
+            targetSlot = this.findNearestSlotWithBFS(formData.vehicleType, 'ground');
             if (!targetSlot) {
-                targetSlot = this.parkingSlots.find(slot => slot.isAvailable);
+                const preferredLane = this.getPreferredLane(formData.vehicleType);
+                targetSlot = this.parkingSlots.find(slot => slot.lane === preferredLane && slot.isAvailable)
+                    || this.parkingSlots.find(slot => slot.isAvailable);
             }
-            
             if (!targetSlot) {
                 this.showMessage('No available slots!', 'error');
                 return;
@@ -530,7 +545,16 @@ class ParkingSystem {
         this.renderParkingGrid();
         this.updateStatus();
         this.hideBookingModal();
-        this.showMessage(`Slot ${targetSlot.id} booked successfully for ${formData.vehicleNumber}!`, 'success');
+        if (this.paymentSystem && formData.plannedDuration) {
+            const est = this.paymentSystem.estimateCharge(formData.vehicleType, formData.plannedDuration);
+            if (est) {
+                this.showMessage(`Slot ${targetSlot.id} booked for ${formData.vehicleNumber}. Estimated: ${est.currency}${est.base.toFixed(2)} for ${formData.plannedDuration} min.`, 'success');
+            } else {
+                this.showMessage(`Slot ${targetSlot.id} booked successfully for ${formData.vehicleNumber}!`, 'success');
+            }
+        } else {
+            this.showMessage(`Slot ${targetSlot.id} booked successfully for ${formData.vehicleNumber}!`, 'success');
+        }
     }
 
     processRelease() {
@@ -551,20 +575,37 @@ class ParkingSystem {
             return;
         }
 
-        // Release the slot
+        // Compute billing before releasing (INR and penalties for overstay)
         const slotId = slot.id;
+        const endTime = new Date();
+        if (this.paymentSystem && slot.bookingTime) {
+            const billing = this.paymentSystem.calculateFinal(
+                slot.vehicleNumber,
+                slot.vehicleType,
+                slot.bookingTime,
+                slot.plannedDuration || 0,
+                endTime
+            );
+            const penaltyText = billing.penalty > 0 ? `, penalty ${billing.currency}${billing.penalty.toFixed(2)}` : '';
+            this.showMessage(`Slot ${slotId} released. Charge: ${billing.currency}${billing.total.toFixed(2)} (base ${billing.currency}${billing.base.toFixed(2)}${penaltyText}).`, 'success');
+        } else {
+            this.showMessage(`Slot ${slotId} released successfully!`, 'success');
+        }
+
+        // Release the slot
         slot.isAvailable = true;
         slot.vehicleNumber = null;
         slot.vehicleType = null;
         slot.driverName = null;
         slot.phoneNumber = null;
         slot.bookingTime = null;
+        slot.plannedDuration = null;
+        slot.status = 'available';
 
         // Update UI
         this.renderParkingGrid();
         this.updateStatus();
         this.hideReleaseModal();
-        this.showMessage(`Slot ${slotId} released successfully!`, 'success');
     }
 
     updateStatus() {

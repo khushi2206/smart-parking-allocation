@@ -12,122 +12,9 @@
 
 // LinkedList and ListNode removed (unused)
 
-// Vehicle Search and Reporting System (DSA Concept)
-class SearchAndReportingSystem {
-    constructor() {
-        this.vehicleToSlotMap = new Map(); // vehicleId -> slotId
-        this.slotToVehicleMap = new Map(); // slotId -> vehicleId
-        this.arrivalTimes = new Map(); // vehicleId -> arrivalTime
-        this.departureTimes = new Map(); // vehicleId -> departureTime
-        this.hourlyStats = new Map(); // hour -> count
-    }
-    
-    registerVehicle(vehicleId, slotId) {
-        this.vehicleToSlotMap.set(vehicleId, slotId);
-        this.slotToVehicleMap.set(slotId, vehicleId);
-        this.arrivalTimes.set(vehicleId, new Date());
-        
-        // Update hourly stats
-        const hour = new Date().getHours();
-        this.hourlyStats.set(hour, (this.hourlyStats.get(hour) || 0) + 1);
-    }
-    
-    findVehicleSlot(vehicleId) {
-        return this.vehicleToSlotMap.get(vehicleId);
-    }
-    
-    findSlotVehicle(slotId) {
-        return this.slotToVehicleMap.get(slotId);
-    }
-    
-    recordDeparture(vehicleId) {
-        this.departureTimes.set(vehicleId, new Date());
-    }
-    
-    getBusiestHours() {
-        const sortedHours = Array.from(this.hourlyStats.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
-        
-        return sortedHours.map(([hour, count]) => ({
-            hour: `${hour}:00`,
-            count,
-            percentage: (count / Array.from(this.hourlyStats.values()).reduce((a, b) => a + b, 0) * 100).toFixed(1)
-        }));
-    }
-    
-    getVehicleHistory(vehicleId) {
-        return {
-            slotId: this.vehicleToSlotMap.get(vehicleId),
-            arrivalTime: this.arrivalTimes.get(vehicleId),
-            departureTime: this.departureTimes.get(vehicleId)
-        };
-    }
-}
+// SearchAndReportingSystem removed (unused)
 
-// Payment and Billing System (DSA Concept)
-class PaymentSystem {
-    constructor() {
-        this.billingInfo = new Map(); // vehicleId -> billing data
-        this.pricingRates = new Map(); // vehicleType -> rate per hour
-        this.initializePricing();
-    }
-    
-    initializePricing() {
-        this.pricingRates.set('car', 2.0);
-        this.pricingRates.set('motorcycle', 1.0);
-        this.pricingRates.set('truck', 3.0);
-    }
-    
-    calculateCharges(vehicleId, vehicleType, startTime, endTime) {
-        const duration = (endTime - startTime) / (1000 * 60 * 60); // hours
-        const rate = this.pricingRates.get(vehicleType) || 2.0;
-        const baseCharge = duration * rate;
-        
-        // Apply discounts for longer stays
-        let discount = 0;
-        if (duration > 8) discount = 0.2; // 20% discount for 8+ hours
-        else if (duration > 4) discount = 0.1; // 10% discount for 4+ hours
-        
-        const finalCharge = baseCharge * (1 - discount);
-        
-        const billingData = {
-            vehicleId,
-            vehicleType,
-            startTime,
-            endTime,
-            duration: duration.toFixed(2),
-            rate,
-            baseCharge: baseCharge.toFixed(2),
-            discount: (discount * 100).toFixed(1) + '%',
-            finalCharge: finalCharge.toFixed(2)
-        };
-        
-        this.billingInfo.set(vehicleId, billingData);
-        return billingData;
-    }
-    
-    getBillingInfo(vehicleId) {
-        return this.billingInfo.get(vehicleId);
-    }
-    
-    generateRevenueReport() {
-        const totalRevenue = Array.from(this.billingInfo.values())
-            .reduce((sum, bill) => sum + parseFloat(bill.finalCharge), 0);
-        
-        const vehicleTypeRevenue = new Map();
-        for (const bill of this.billingInfo.values()) {
-            const current = vehicleTypeRevenue.get(bill.vehicleType) || 0;
-            vehicleTypeRevenue.set(bill.vehicleType, current + parseFloat(bill.finalCharge));
-        }
-        
-        return {
-            totalRevenue: totalRevenue.toFixed(2),
-            byVehicleType: Object.fromEntries(vehicleTypeRevenue),
-            totalTransactions: this.billingInfo.size
-        };
-    }
-}
+// PaymentSystem removed (unused)
 
 // PriorityQueue, Vehicle, and DynamicSlotAllocator removed (unused)
 
@@ -138,9 +25,7 @@ class ParkingSystem {
         this.bookings = [];
         this.selectedSlot = null;
         
-        // Core subsystems
-        this.searchSystem = new SearchAndReportingSystem();
-        this.paymentSystem = new PaymentSystem();
+        // Core subsystems removed (search/reporting, payment)
         
         // Lane configuration
         this.lanes = {
@@ -289,24 +174,18 @@ class ParkingSystem {
 
     getSlotStatusClass(slot) {
         if (slot.isAvailable) {
-            if (slot.status === 'reserved') return 'reserved';
             return 'available';
-        } else {
-            if (slot.priority === 'vip') return 'vip';
-            if (this.isOverstayed(slot)) return 'overstayed';
-            return 'booked';
         }
+        if (slot.priority === 'vip') return 'vip';
+        if (this.isOverstayed(slot)) return 'overstayed';
+        return 'booked';
     }
 
     getSlotStatusText(slot) {
-        if (slot.isAvailable) {
-            if (slot.status === 'reserved') return 'Reserved';
-            return 'Available';
-        } else {
-            if (this.isOverstayed(slot)) return 'Overstayed';
-            if (slot.priority === 'vip') return 'VIP';
-            return 'Occupied';
-        }
+        if (slot.isAvailable) return 'Available';
+        if (this.isOverstayed(slot)) return 'Overstayed';
+        if (slot.priority === 'vip') return 'VIP';
+        return 'Occupied';
     }
 
     isOverstayed(slot) {
@@ -328,16 +207,7 @@ class ParkingSystem {
         slot.priority = vehicleData.priority || 'regular';
         slot.status = 'occupied';
 
-        // Register with search system
-        this.registerVehicleArrival(vehicleData.vehicleNumber, slot.id);
-
-        // Calculate charges with planned duration
-        const startTime = slot.bookingTime;
-        const endTime = plannedDuration ? 
-            new Date(startTime.getTime() + plannedDuration * 60 * 1000) :
-            new Date(startTime.getTime() + 2 * 60 * 60 * 1000); // 2 hours default
-        
-        this.calculateParkingCharges(vehicleData.vehicleNumber, vehicleData.vehicleType, startTime, endTime);
+        // Pricing and search/reporting removed
 
         this.renderParkingGrid();
         this.updateStatus();
@@ -525,45 +395,7 @@ class ParkingSystem {
 
     // Dynamic simulation and wait queue removed
 
-    // Advanced features (MinHeap/Graph/Reservations/Waitlist) removed
-
-    // 5. Vehicle Search and Reporting
-    findVehicle(vehicleId) {
-        const slotId = this.searchSystem.findVehicleSlot(vehicleId);
-        if (slotId) {
-            const slot = this.parkingSlots.find(s => s.id === slotId);
-            return { slotId, slot, history: this.searchSystem.getVehicleHistory(vehicleId) };
-        }
-        return null;
-    }
-
-    registerVehicleArrival(vehicleId, slotId) {
-        this.searchSystem.registerVehicle(vehicleId, slotId);
-        console.log(`Vehicle ${vehicleId} registered at slot ${slotId}`);
-    }
-
-    recordVehicleDeparture(vehicleId) {
-        this.searchSystem.recordDeparture(vehicleId);
-        console.log(`Vehicle ${vehicleId} departure recorded`);
-    }
-
-    getBusiestHours() {
-        return this.searchSystem.getBusiestHours();
-    }
-
-    calculateParkingCharges(vehicleId, vehicleType, startTime, endTime) {
-        const billingData = this.paymentSystem.calculateCharges(vehicleId, vehicleType, startTime, endTime);
-        console.log(`Charges calculated for vehicle ${vehicleId}: $${billingData.finalCharge}`);
-        return billingData;
-    }
-
-    getBillingInfo(vehicleId) {
-        return this.paymentSystem.getBillingInfo(vehicleId);
-    }
-
-    generateRevenueReport() {
-        return this.paymentSystem.generateRevenueReport();
-    }
+    // Advanced features (MinHeap/Graph/Reservations/Waitlist/Search/Payment) removed
 
     // Advanced booking/reservations removed
 

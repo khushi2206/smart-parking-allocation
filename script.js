@@ -2,7 +2,263 @@
 
 // Advanced Data Structures for Enhanced Parking System
 
-// Removed unused data structures (MinHeap, ParkingGraph, ReservationSystem, WaitlistSystem, LinkedList)
+// Min Heap for finding nearest available slot (DSA Concept)
+class MinHeap {
+    constructor() {
+        this.heap = [];
+    }
+    
+    insert(slot) {
+        this.heap.push(slot);
+        this.heapifyUp();
+    }
+    
+    extractMin() {
+        if (this.heap.length === 0) return null;
+        if (this.heap.length === 1) return this.heap.pop();
+        
+        const min = this.heap[0];
+        this.heap[0] = this.heap.pop();
+        this.heapifyDown();
+        return min;
+    }
+    
+    heapifyUp() {
+        let index = this.heap.length - 1;
+        while (index > 0) {
+            const parentIndex = Math.floor((index - 1) / 2);
+            if (this.heap[parentIndex].distance <= this.heap[index].distance) break;
+            [this.heap[parentIndex], this.heap[index]] = [this.heap[index], this.heap[parentIndex]];
+            index = parentIndex;
+        }
+    }
+    
+    heapifyDown() {
+        let index = 0;
+        while (true) {
+            let smallest = index;
+            const leftChild = 2 * index + 1;
+            const rightChild = 2 * index + 2;
+            
+            if (leftChild < this.heap.length && this.heap[leftChild].distance < this.heap[smallest].distance) {
+                smallest = leftChild;
+            }
+            if (rightChild < this.heap.length && this.heap[rightChild].distance < this.heap[smallest].distance) {
+                smallest = rightChild;
+            }
+            if (smallest === index) break;
+            
+            [this.heap[index], this.heap[smallest]] = [this.heap[smallest], this.heap[index]];
+            index = smallest;
+        }
+    }
+    
+    isEmpty() {
+        return this.heap.length === 0;
+    }
+}
+
+// Graph for Multi-Level Parking Navigation (DSA Concept)
+class ParkingGraph {
+    constructor() {
+        this.adjacencyList = new Map();
+        this.floors = new Map();
+    }
+    
+    addFloor(floorId, slots) {
+        this.floors.set(floorId, slots);
+        this.adjacencyList.set(floorId, []);
+    }
+    
+    addConnection(floor1, floor2, distance) {
+        this.adjacencyList.get(floor1).push({ floor: floor2, distance });
+        this.adjacencyList.get(floor2).push({ floor: floor1, distance });
+    }
+    
+    // BFS to find shortest path to nearest available slot
+    findNearestAvailableSlot(startFloor, vehicleType) {
+        const queue = [{ floor: startFloor, distance: 0, path: [startFloor] }];
+        const visited = new Set();
+        
+        while (queue.length > 0) {
+            const { floor, distance, path } = queue.shift();
+            
+            if (visited.has(floor)) continue;
+            visited.add(floor);
+            
+            // Check if current floor has available slots
+            const availableSlots = this.getAvailableSlots(floor, vehicleType);
+            if (availableSlots.length > 0) {
+                return {
+                    floor,
+                    slots: availableSlots,
+                    distance,
+                    path
+                };
+            }
+            
+            // Add connected floors to queue
+            const connections = this.adjacencyList.get(floor) || [];
+            for (const connection of connections) {
+                if (!visited.has(connection.floor)) {
+                    queue.push({
+                        floor: connection.floor,
+                        distance: distance + connection.distance,
+                        path: [...path, connection.floor]
+                    });
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    getAvailableSlots(floorId, vehicleType) {
+        const floor = this.floors.get(floorId);
+        if (!floor) return [];
+        
+        return floor.filter(slot => 
+            slot.isAvailable && this.isCompatibleSlot(vehicleType, slot)
+        );
+    }
+    
+    isCompatibleSlot(vehicleType, slot) {
+        const compatibility = {
+            'car': ['car', 'truck'],
+            'motorcycle': ['twoWheeler', 'car'],
+            'truck': ['truck']
+        };
+        return compatibility[vehicleType]?.includes(slot.lane);
+    }
+}
+
+// Reservation System with Hash Maps (DSA Concept)
+class ReservationSystem {
+    constructor() {
+        this.reservations = new Map(); // vehicleId -> reservation
+        this.timeSlots = new Map(); // timeSlot -> reservations
+        this.priorityQueue = new PriorityQueue();
+    }
+    
+    makeReservation(vehicleId, slotId, startTime, endTime, priority = 'regular') {
+        const reservation = {
+            id: Date.now(),
+            vehicleId,
+            slotId,
+            startTime: new Date(startTime),
+            endTime: new Date(endTime),
+            priority,
+            status: 'pending'
+        };
+        
+        this.reservations.set(vehicleId, reservation);
+        this.priorityQueue.enqueue(reservation, this.getPriorityWeight(priority));
+        
+        return reservation;
+    }
+    
+    getPriorityWeight(priority) {
+        const weights = {
+            'emergency': 1,
+            'vip': 2,
+            'premium': 3,
+            'regular': 4
+        };
+        return weights[priority] || 4;
+    }
+    
+    getReservation(vehicleId) {
+        return this.reservations.get(vehicleId);
+    }
+    
+    cancelReservation(vehicleId) {
+        const reservation = this.reservations.get(vehicleId);
+        if (reservation) {
+            reservation.status = 'cancelled';
+            this.reservations.delete(vehicleId);
+            return true;
+        }
+        return false;
+    }
+}
+
+// Waitlist System with Queue and Linked List (DSA Concept)
+class WaitlistSystem {
+    constructor() {
+        this.waitingQueue = new PriorityQueue();
+        this.overflowList = new LinkedList();
+        this.maxCapacity = 100;
+    }
+    
+    addToWaitlist(vehicle) {
+        if (this.waitingQueue.size() < this.maxCapacity) {
+            this.waitingQueue.enqueue(vehicle, vehicle.priorityWeight);
+            return { status: 'queued', position: this.waitingQueue.size() };
+        } else {
+            this.overflowList.append(vehicle);
+            return { status: 'overflow', position: this.overflowList.size };
+        }
+    }
+    
+    processNextVehicle() {
+        if (!this.waitingQueue.isEmpty()) {
+            return this.waitingQueue.dequeue();
+        } else if (!this.overflowList.isEmpty()) {
+            return this.overflowList.removeFirst();
+        }
+        return null;
+    }
+    
+    getWaitlistStatus() {
+        return {
+            queued: this.waitingQueue.size(),
+            overflow: this.overflowList.size,
+            total: this.waitingQueue.size() + this.overflowList.size
+        };
+    }
+}
+
+// Linked List for Overflow Management (DSA Concept)
+class LinkedList {
+    constructor() {
+        this.head = null;
+        this.tail = null;
+        this.size = 0;
+    }
+    
+    append(data) {
+        const newNode = new ListNode(data);
+        if (!this.head) {
+            this.head = newNode;
+            this.tail = newNode;
+        } else {
+            this.tail.next = newNode;
+            this.tail = newNode;
+        }
+        this.size++;
+    }
+    
+    removeFirst() {
+        if (!this.head) return null;
+        
+        const data = this.head.data;
+        this.head = this.head.next;
+        if (!this.head) this.tail = null;
+        this.size--;
+        return data;
+    }
+    
+    isEmpty() {
+        return this.size === 0;
+    }
+}
+
+class ListNode {
+    constructor(data) {
+        this.data = data;
+        this.next = null;
+    }
+}
 
 // Vehicle Search and Reporting System (DSA Concept)
 class SearchAndReportingSystem {
@@ -145,8 +401,7 @@ class PriorityQueue {
     }
     
     dequeue() {
-        const element = this.items.shift();
-        return element ? element.item : null;
+        return this.items.shift();
     }
     
     isEmpty() {
@@ -154,7 +409,7 @@ class PriorityQueue {
     }
     
     peek() {
-        return this.items[0] ? this.items[0].item : null;
+        return this.items[0];
     }
     
     size() {
@@ -250,10 +505,12 @@ class ParkingSystem {
         // Initialize advanced systems
         this.dynamicAllocator = new DynamicSlotAllocator();
         this.waitingVehicles = [];
-        // Removed: ParkingGraph, ReservationSystem, WaitlistSystem
+        this.parkingGraph = new ParkingGraph();
+        this.reservationSystem = new ReservationSystem();
+        this.waitlistSystem = new WaitlistSystem();
         this.searchSystem = new SearchAndReportingSystem();
         this.paymentSystem = new PaymentSystem();
-        // Removed: MinHeap; simple allocation uses allocator
+        this.minHeap = new MinHeap();
         
         // Lane configuration
         this.lanes = {
@@ -289,13 +546,13 @@ class ParkingSystem {
 
     init() {
         this.initializeSlots();
-        this.syncAvailableSlots();
         this.renderParkingGrid();
         this.bindEvents();
         this.updateStatus();
         this.populateSlotOptions();
         
-        // Advanced features removed
+        // Initialize advanced features
+        this.initializeMultiLevelParking();
         
         // Start dynamic simulation
         this.simulateDynamicArrivals();
@@ -303,7 +560,42 @@ class ParkingSystem {
         // Start overstayed vehicle monitoring
         this.startOverstayedMonitoring();
         
-        // Demo removed
+        // Demo advanced features
+        this.demoAdvancedFeatures();
+    }
+
+    demoAdvancedFeatures() {
+        console.log('=== Advanced Parking System Features Demo ===');
+        
+        // Demo reservation system
+        setTimeout(() => {
+            this.makeReservation('DEMO-001', 1, '2024-01-01 10:00', '2024-01-01 12:00', 'vip');
+            console.log('Demo: VIP reservation made for slot 1');
+        }, 2000);
+        
+        // Demo multi-level parking
+        setTimeout(() => {
+            const result = this.findNearestSlotWithBFS('car', 'ground');
+            console.log('Demo: Multi-level parking search result:', result);
+        }, 3000);
+        
+        // Demo waitlist system
+        setTimeout(() => {
+            const waitlistStatus = this.getWaitlistStatus();
+            console.log('Demo: Waitlist status:', waitlistStatus);
+        }, 4000);
+        
+        // Demo reporting system
+        setTimeout(() => {
+            const busiestHours = this.getBusiestHours();
+            console.log('Demo: Busiest hours:', busiestHours);
+        }, 5000);
+        
+        // Demo payment system
+        setTimeout(() => {
+            const revenueReport = this.generateRevenueReport();
+            console.log('Demo: Revenue report:', revenueReport);
+        }, 6000);
     }
 
     initializeSlots() {
@@ -445,8 +737,6 @@ class ParkingSystem {
         slot.plannedDuration = plannedDuration;
         slot.priority = vehicleData.priority || 'regular';
         slot.status = 'occupied';
-        // Keep allocator map in sync
-        this.dynamicAllocator.availableSlots.delete(slot.id);
 
         // Register with search system
         this.registerVehicleArrival(vehicleData.vehicleNumber, slot.id);
@@ -685,13 +975,9 @@ class ParkingSystem {
     }
     
     attemptAutoAllocation() {
-        this.syncAvailableSlots();
-        let allocation = this.dynamicAllocator.allocateNextAvailableSlot();
-        let safetyCounter = 0;
-        while (allocation && safetyCounter < 100) {
+        const allocation = this.dynamicAllocator.allocateNextAvailableSlot();
+        if (allocation) {
             this.autoBookSlot(allocation.vehicle, allocation.slot);
-            allocation = this.dynamicAllocator.allocateNextAvailableSlot();
-            safetyCounter++;
         }
     }
     
@@ -702,10 +988,6 @@ class ParkingSystem {
         slot.vehicleType = vehicle.type;
         slot.driverName = vehicle.driverName;
         slot.bookingTime = new Date();
-        // Remove from allocator available slots and waiting UI
-        this.dynamicAllocator.availableSlots.delete(slot.id);
-        this.waitingVehicles = this.waitingVehicles.filter(v => v.licensePlate !== vehicle.licensePlate);
-        this.updateWaitingQueueDisplay();
         
         // Add to bookings
         this.bookings.unshift({
@@ -749,17 +1031,32 @@ class ParkingSystem {
     }
 
     // Advanced Features Implementation
-    // Keep allocator's available slots in sync with current state
-    syncAvailableSlots() {
-        this.dynamicAllocator.availableSlots.clear();
-        for (const slot of this.parkingSlots) {
-            if (slot.isAvailable) {
-                this.dynamicAllocator.availableSlots.set(slot.id, slot);
-            }
-        }
+
+    // 1. Dynamic Slot Assignment with Min Heap
+    findNearestAvailableSlot(vehicleType, preferredLane = null) {
+        const availableSlots = this.parkingSlots.filter(slot => 
+            slot.isAvailable && this.isCompatibleSlot(vehicleType, slot)
+        );
+
+        if (availableSlots.length === 0) return null;
+
+        // Calculate distances and add to min heap
+        availableSlots.forEach(slot => {
+            const distance = this.calculateDistance(slot, preferredLane);
+            this.minHeap.insert({ ...slot, distance });
+        });
+
+        return this.minHeap.extractMin();
     }
 
-    // MinHeap-based nearest slot removed
+    calculateDistance(slot, preferredLane) {
+        if (!preferredLane) return 0;
+        
+        // Simple distance calculation based on lane and slot position
+        const laneDistance = slot.lane === preferredLane ? 0 : 1;
+        const slotDistance = slot.id % 10; // Distance within lane
+        return laneDistance + slotDistance;
+    }
 
     isCompatibleSlot(vehicleType, slot) {
         const compatibility = {
@@ -770,13 +1067,66 @@ class ParkingSystem {
         return compatibility[vehicleType]?.includes(slot.lane);
     }
 
-    // Multi-level navigation removed
+    // 2. Multi-Level Parking with Graph Navigation
+    initializeMultiLevelParking() {
+        // Add floors to the graph
+        this.parkingGraph.addFloor('ground', this.parkingSlots.slice(0, 35));
+        this.parkingGraph.addFloor('first', this.parkingSlots.slice(35, 70));
+        
+        // Add connections between floors
+        this.parkingGraph.addConnection('ground', 'first', 1);
+        
+        console.log('Multi-level parking initialized with 2 floors');
+    }
 
-    // Reservation system removed
+    findNearestSlotWithBFS(vehicleType, startFloor = 'ground') {
+        const result = this.parkingGraph.findNearestAvailableSlot(startFloor, vehicleType);
+        if (result) {
+            console.log(`Found available slots on floor ${result.floor} with distance ${result.distance}`);
+            console.log(`Path: ${result.path.join(' -> ')}`);
+        }
+        return result;
+    }
 
-    // Waitlist/overflow system removed
+    // 3. Reservation System
+    makeReservation(vehicleId, slotId, startTime, endTime, priority = 'regular') {
+        const reservation = this.reservationSystem.makeReservation(
+            vehicleId, slotId, startTime, endTime, priority
+        );
+        
+        console.log(`Reservation made for vehicle ${vehicleId} at slot ${slotId}`);
+        return reservation;
+    }
 
-    // Vehicle Search and Reporting
+    checkReservation(vehicleId) {
+        return this.reservationSystem.getReservation(vehicleId);
+    }
+
+    cancelReservation(vehicleId) {
+        return this.reservationSystem.cancelReservation(vehicleId);
+    }
+
+    // 4. Waitlist and Overflow Management
+    addToWaitlist(vehicle) {
+        const result = this.waitlistSystem.addToWaitlist(vehicle);
+        console.log(`Vehicle ${vehicle.licensePlate} added to waitlist: ${result.status}`);
+        return result;
+    }
+
+    processWaitlist() {
+        const nextVehicle = this.waitlistSystem.processNextVehicle();
+        if (nextVehicle) {
+            console.log(`Processing vehicle from waitlist: ${nextVehicle.licensePlate}`);
+            return nextVehicle;
+        }
+        return null;
+    }
+
+    getWaitlistStatus() {
+        return this.waitlistSystem.getWaitlistStatus();
+    }
+
+    // 5. Vehicle Search and Reporting
     findVehicle(vehicleId) {
         const slotId = this.searchSystem.findVehicleSlot(vehicleId);
         if (slotId) {
@@ -815,7 +1165,34 @@ class ParkingSystem {
         return this.paymentSystem.generateRevenueReport();
     }
 
-    // Advanced process booking removed
+    // Enhanced booking with all advanced features
+    processAdvancedBooking(vehicleData) {
+        const { vehicleNumber, vehicleType, driverName, priority = 'regular' } = vehicleData;
+        
+        // 1. Check for existing reservation
+        const reservation = this.checkReservation(vehicleNumber);
+        if (reservation && reservation.status === 'pending') {
+            console.log('Using existing reservation');
+            return this.fulfillReservation(reservation);
+        }
+
+        // 2. Find nearest available slot using Min Heap
+        const nearestSlot = this.findNearestAvailableSlot(vehicleType);
+        if (nearestSlot) {
+            return this.allocateSlot(nearestSlot, vehicleData);
+        }
+
+        // 3. If no slots available, add to waitlist
+        const vehicle = new Vehicle(vehicleNumber, vehicleType, driverName, priority);
+        const waitlistResult = this.addToWaitlist(vehicle);
+        
+        if (waitlistResult.status === 'overflow') {
+            console.log('Parking is full and waitlist is at capacity');
+            return { status: 'overflow', message: 'Parking is completely full' };
+        }
+
+        return { status: 'waitlisted', position: waitlistResult.position };
+    }
 
     allocateSlot(slot, vehicleData) {
         slot.isAvailable = false;
@@ -823,8 +1200,6 @@ class ParkingSystem {
         slot.vehicleType = vehicleData.vehicleType;
         slot.driverName = vehicleData.driverName;
         slot.bookingTime = new Date();
-        // Keep allocator map in sync
-        this.dynamicAllocator.availableSlots.delete(slot.id);
 
         // Register with search system
         this.registerVehicleArrival(vehicleData.vehicleNumber, slot.id);
@@ -840,7 +1215,17 @@ class ParkingSystem {
         return { status: 'allocated', slot: slot.id };
     }
 
-    // Reservation fulfillment removed
+    fulfillReservation(reservation) {
+        const slot = this.parkingSlots.find(s => s.id === reservation.slotId);
+        if (slot && slot.isAvailable) {
+            return this.allocateSlot(slot, {
+                vehicleNumber: reservation.vehicleId,
+                vehicleType: 'car', // Default, should be stored in reservation
+                driverName: 'Reserved User'
+            });
+        }
+        return { status: 'reservation_conflict', message: 'Reserved slot is no longer available' };
+    }
 
     processBooking() {
         const formData = {
@@ -942,9 +1327,6 @@ class ParkingSystem {
         slot.driverName = null;
         slot.phoneNumber = null;
         slot.bookingTime = null;
-        // Add back to allocator available slots and try allocating to waiters
-        this.dynamicAllocator.availableSlots.set(slotId, slot);
-        this.attemptAutoAllocation();
 
         // Update UI
         this.renderParkingGrid();
@@ -1073,4 +1455,43 @@ document.addEventListener('DOMContentLoaded', () => {
     window.parkingSystem = new ParkingSystem();
 });
 
-// Demo data removed
+// Add some demo data for testing
+document.addEventListener('DOMContentLoaded', () => {
+    // Add some demo bookings after a short delay
+    setTimeout(() => {
+        if (window.parkingSystem) {
+            // Book a few demo slots
+            const demoBookings = [
+                { slotId: 1, vehicleNumber: 'ABC-1234', vehicleType: 'car', driverName: 'John Doe', phoneNumber: '123-456-7890' },
+                { slotId: 3, vehicleNumber: 'CAR-5678', vehicleType: 'car', driverName: 'Alice Brown', phoneNumber: '987-654-3210' },
+                { slotId: 5, vehicleNumber: 'SUV-9999', vehicleType: 'car', driverName: 'Bob Johnson', phoneNumber: '111-222-3333' },
+                { slotId: 21, vehicleNumber: 'BIKE-001', vehicleType: 'motorcycle', driverName: 'Mike Wilson', phoneNumber: '555-123-4567' },
+                { slotId: 25, vehicleNumber: 'MOTO-002', vehicleType: 'motorcycle', driverName: 'Sarah Davis', phoneNumber: '444-555-6666' },
+                { slotId: 30, vehicleNumber: 'SCOOT-01', vehicleType: 'motorcycle', driverName: 'Lisa Park', phoneNumber: '666-777-8888' },
+                { slotId: 61, vehicleNumber: 'TRUCK-01', vehicleType: 'truck', driverName: 'Tom Smith', phoneNumber: '777-888-9999' },
+                { slotId: 63, vehicleNumber: 'HAUL-02', vehicleType: 'truck', driverName: 'David Lee', phoneNumber: '999-000-1111' }
+            ];
+
+            demoBookings.forEach(booking => {
+                const slot = window.parkingSystem.parkingSlots.find(s => s.id === booking.slotId);
+                if (slot && slot.isAvailable) {
+                    slot.isAvailable = false;
+                    slot.vehicleNumber = booking.vehicleNumber;
+                    slot.vehicleType = booking.vehicleType;
+                    slot.driverName = booking.driverName;
+                    slot.phoneNumber = booking.phoneNumber;
+                    slot.bookingTime = new Date();
+
+                    window.parkingSystem.bookings.push({
+                        id: Date.now() + Math.random(),
+                        ...booking,
+                        bookingTime: slot.bookingTime
+                    });
+                }
+            });
+
+            window.parkingSystem.renderParkingGrid();
+            window.parkingSystem.updateStatus();
+        }
+    }, 1000);
+});

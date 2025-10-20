@@ -72,7 +72,68 @@ class ParkingGraph {
 
 // LinkedList and ListNode removed (unused)
 
-// PaymentSystem will be reintroduced below
+// Payment and Billing System in INR with overstay penalties
+class PaymentSystem {
+    constructor() {
+        this.billingInfo = new Map(); // vehicleId -> billing data
+        this.currency = '₹';
+        // Base rates per hour in INR
+        this.pricingRatesPerHour = new Map([
+            ['car', 100],
+            ['motorcycle', 50],
+            ['truck', 150]
+        ]);
+        // Overstay penalty rates per hour in INR
+        this.penaltyRatesPerHour = new Map([
+            ['car', 200],
+            ['motorcycle', 100],
+            ['truck', 300]
+        ]);
+    }
+
+    estimateCharge(vehicleType, plannedDurationMinutes) {
+        if (!plannedDurationMinutes || plannedDurationMinutes <= 0) return null;
+        const rate = this.pricingRatesPerHour.get(vehicleType) || 100;
+        const hours = plannedDurationMinutes / 60;
+        const base = rate * hours;
+        return { currency: this.currency, ratePerHour: rate, hours, base: this._round(base) };
+    }
+
+    calculateFinal(vehicleId, vehicleType, startTime, plannedDurationMinutes, endTime) {
+        const rate = this.pricingRatesPerHour.get(vehicleType) || 100;
+        const penaltyRate = this.penaltyRatesPerHour.get(vehicleType) || 200;
+        const totalMinutes = (endTime - startTime) / (1000 * 60);
+        const plannedMinutes = Math.max(0, plannedDurationMinutes || 0);
+
+        const baseMinutes = Math.min(totalMinutes, plannedMinutes > 0 ? plannedMinutes : totalMinutes);
+        const overstayMinutes = Math.max(0, totalMinutes - plannedMinutes);
+
+        const base = rate * (baseMinutes / 60);
+        const penalty = overstayMinutes > 0 ? penaltyRate * (overstayMinutes / 60) : 0;
+        const total = base + penalty;
+
+        const billingData = {
+            vehicleId,
+            vehicleType,
+            currency: this.currency,
+            startTime,
+            endTime,
+            plannedDurationMinutes: plannedMinutes,
+            totalMinutes: Number(totalMinutes.toFixed(2)),
+            base: this._round(base),
+            penalty: this._round(penalty),
+            total: this._round(total),
+            ratePerHour: rate,
+            penaltyRatePerHour: penaltyRate
+        };
+        this.billingInfo.set(vehicleId, billingData);
+        return billingData;
+    }
+
+    _round(num) {
+        return Math.round(num * 100) / 100;
+    }
+}
 
 // PriorityQueue, Vehicle, and DynamicSlotAllocator removed (unused)
 

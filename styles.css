@@ -325,7 +325,7 @@ body {
     background: #f39c12;
     border-color: #e67e22;
     color: #ffffff;
-    animation: pulse 2s infinite;
+    animation: pulse 3s ease-in-out infinite;
 }
 
 .parking-slot.reserved:hover {
@@ -336,7 +336,7 @@ body {
     background: #e67e22;
     border-color: #d35400;
     color: #ffffff;
-    animation: warning 1s infinite alternate;
+    animation: warning 1.5s ease-in-out infinite alternate;
 }
 
 .parking-slot.overstayed:hover {
@@ -357,13 +357,13 @@ body {
 
 @keyframes pulse {
     0% { opacity: 1; }
-    50% { opacity: 0.7; }
+    50% { opacity: 0.85; }
     100% { opacity: 1; }
 }
 
 @keyframes warning {
     0% { background: #e67e22; }
-    100% { background: #c0392b; }
+    100% { background: #d35400; }
 }
 
 .parking-slot.selected {
@@ -386,8 +386,11 @@ body {
     font-size: 0.6rem;
     margin-top: 0.2rem;
     opacity: 0.8;
-    word-break: break-all;
     line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .slot-duration {
@@ -895,4 +898,107 @@ body {
 .legend-color.vip {
     background: #3498db;
     border-color: #2980b9;
+}
+
+/* Custom Scrollbar Styling */
+.lane-slots,
+.bookings-list,
+.modal-content,
+.queue-list {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #5a7fd6 rgba(64, 150, 255, 0.15); /* Firefox */
+}
+
+/* WebKit scrollbars */
+.lane-slots::-webkit-scrollbar {
+    height: 10px;
+}
+.lane-slots::-webkit-scrollbar-track {
+    background: rgba(64, 150, 255, 0.08);
+    border-radius: 8px;
+}
+.lane-slots::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #5a7fd6, #3a6fd0);
+    border-radius: 8px;
+    border: 2px solid rgba(26, 26, 46, 0.6);
+}
+.lane-slots::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #7293e8, #4a7ee0);
+}
+
+.bookings-list::-webkit-scrollbar,
+.modal-content::-webkit-scrollbar {
+    width: 10px;
+}
+.bookings-list::-webkit-scrollbar-track,
+.modal-content::-webkit-scrollbar-track {
+    background: rgba(64, 150, 255, 0.08);
+    border-radius: 8px;
+}
+.bookings-list::-webkit-scrollbar-thumb,
+.modal-content::-webkit-scrollbar-thumb {
+    background: #5a7fd6;
+    border-radius: 8px;
+    border: 2px solid rgba(26, 26, 46, 0.6);
+}
+.bookings-list::-webkit-scrollbar-thumb:hover,
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: #7293e8;
+}
+
+/* Accessible Focus States */
+.btn:focus-visible,
+.nav-btn:focus-visible,
+.parking-slot:focus-visible,
+.close-btn:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+    outline: 3px solid rgba(64, 150, 255, 0.85);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(64, 150, 255, 0.25);
+}
+
+/* Text Overflow Handling */
+.booking-vehicle,
+.booking-details {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.queue-item {
+    min-width: 0; /* allow children to shrink for ellipsis */
+    max-width: 100%;
+}
+.queue-item .vehicle-plate,
+.queue-item .vehicle-type {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 10ch;
+}
+
+/* Utility for dynamic text on dark backgrounds */
+.dynamic-text { color: #e0e6ed; }
+
+/* Extra small devices */
+@media (max-width: 360px) {
+    .container { padding: 0 8px; }
+    .header .container { padding: 0.75rem 10px; }
+    .header h1 { font-size: 1.4rem; }
+
+    .btn { padding: 0.5rem 0.9rem; font-size: 0.85rem; }
+
+    .lane-slots {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.15rem;
+        padding: 0.6rem;
+    }
+    .parking-slot {
+        min-height: 42px;
+        aspect-ratio: 1.1/1;
+        min-width: 64px;
+    }
+    .slot-number { font-size: 0.75rem; }
+    .slot-status { font-size: 0.55rem; }
+    .slot-vehicle { font-size: 0.45rem; }
 }

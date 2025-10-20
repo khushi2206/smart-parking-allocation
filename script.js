@@ -506,12 +506,10 @@ class ParkingSystem {
         // Initialize advanced systems
         this.dynamicAllocator = new DynamicSlotAllocator();
         this.waitingVehicles = [];
-        this.parkingGraph = new ParkingGraph();
-        this.reservationSystem = new ReservationSystem();
-        this.waitlistSystem = new WaitlistSystem();
+        // Removed: ParkingGraph, ReservationSystem, WaitlistSystem
         this.searchSystem = new SearchAndReportingSystem();
         this.paymentSystem = new PaymentSystem();
-        this.minHeap = new MinHeap();
+        // Removed: MinHeap; simple allocation uses allocator
         
         // Lane configuration
         this.lanes = {
@@ -553,8 +551,7 @@ class ParkingSystem {
         this.updateStatus();
         this.populateSlotOptions();
         
-        // Initialize advanced features
-        this.initializeMultiLevelParking();
+        // Advanced features removed
         
         // Start dynamic simulation
         this.simulateDynamicArrivals();
@@ -1018,33 +1015,7 @@ class ParkingSystem {
         }
     }
 
-    // 1. Dynamic Slot Assignment with Min Heap
-    findNearestAvailableSlot(vehicleType, preferredLane = null) {
-        // Reset heap per search to avoid stale entries
-        this.minHeap = new MinHeap();
-        const availableSlots = this.parkingSlots.filter(slot => 
-            slot.isAvailable && this.isCompatibleSlot(vehicleType, slot)
-        );
-
-        if (availableSlots.length === 0) return null;
-
-        // Calculate distances and add to min heap
-        availableSlots.forEach(slot => {
-            const distance = this.calculateDistance(slot, preferredLane);
-            this.minHeap.insert({ ...slot, distance });
-        });
-
-        return this.minHeap.extractMin();
-    }
-
-    calculateDistance(slot, preferredLane) {
-        if (!preferredLane) return 0;
-        
-        // Simple distance calculation based on lane and slot position
-        const laneDistance = slot.lane === preferredLane ? 0 : 1;
-        const slotDistance = slot.id % 10; // Distance within lane
-        return laneDistance + slotDistance;
-    }
+    // MinHeap-based nearest slot removed
 
     isCompatibleSlot(vehicleType, slot) {
         const compatibility = {
@@ -1055,66 +1026,13 @@ class ParkingSystem {
         return compatibility[vehicleType]?.includes(slot.lane);
     }
 
-    // 2. Multi-Level Parking with Graph Navigation
-    initializeMultiLevelParking() {
-        // Add floors to the graph
-        this.parkingGraph.addFloor('ground', this.parkingSlots.slice(0, 35));
-        this.parkingGraph.addFloor('first', this.parkingSlots.slice(35, 70));
-        
-        // Add connections between floors
-        this.parkingGraph.addConnection('ground', 'first', 1);
-        
-        console.log('Multi-level parking initialized with 2 floors');
-    }
+    // Multi-level navigation removed
 
-    findNearestSlotWithBFS(vehicleType, startFloor = 'ground') {
-        const result = this.parkingGraph.findNearestAvailableSlot(startFloor, vehicleType);
-        if (result) {
-            console.log(`Found available slots on floor ${result.floor} with distance ${result.distance}`);
-            console.log(`Path: ${result.path.join(' -> ')}`);
-        }
-        return result;
-    }
+    // Reservation system removed
 
-    // 3. Reservation System
-    makeReservation(vehicleId, slotId, startTime, endTime, priority = 'regular') {
-        const reservation = this.reservationSystem.makeReservation(
-            vehicleId, slotId, startTime, endTime, priority
-        );
-        
-        console.log(`Reservation made for vehicle ${vehicleId} at slot ${slotId}`);
-        return reservation;
-    }
+    // Waitlist/overflow system removed
 
-    checkReservation(vehicleId) {
-        return this.reservationSystem.getReservation(vehicleId);
-    }
-
-    cancelReservation(vehicleId) {
-        return this.reservationSystem.cancelReservation(vehicleId);
-    }
-
-    // 4. Waitlist and Overflow Management
-    addToWaitlist(vehicle) {
-        const result = this.waitlistSystem.addToWaitlist(vehicle);
-        console.log(`Vehicle ${vehicle.licensePlate} added to waitlist: ${result.status}`);
-        return result;
-    }
-
-    processWaitlist() {
-        const nextVehicle = this.waitlistSystem.processNextVehicle();
-        if (nextVehicle) {
-            console.log(`Processing vehicle from waitlist: ${nextVehicle.licensePlate}`);
-            return nextVehicle;
-        }
-        return null;
-    }
-
-    getWaitlistStatus() {
-        return this.waitlistSystem.getWaitlistStatus();
-    }
-
-    // 5. Vehicle Search and Reporting
+    // Vehicle Search and Reporting
     findVehicle(vehicleId) {
         const slotId = this.searchSystem.findVehicleSlot(vehicleId);
         if (slotId) {

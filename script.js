@@ -401,7 +401,8 @@ class PriorityQueue {
     }
     
     dequeue() {
-        return this.items.shift();
+        const element = this.items.shift();
+        return element ? element.item : null;
     }
     
     isEmpty() {
@@ -409,7 +410,7 @@ class PriorityQueue {
     }
     
     peek() {
-        return this.items[0];
+        return this.items[0] ? this.items[0].item : null;
     }
     
     size() {
@@ -546,6 +547,7 @@ class ParkingSystem {
 
     init() {
         this.initializeSlots();
+        this.syncAvailableSlots();
         this.renderParkingGrid();
         this.bindEvents();
         this.updateStatus();
@@ -737,6 +739,8 @@ class ParkingSystem {
         slot.plannedDuration = plannedDuration;
         slot.priority = vehicleData.priority || 'regular';
         slot.status = 'occupied';
+        // Keep allocator map in sync
+        this.dynamicAllocator.availableSlots.delete(slot.id);
 
         // Register with search system
         this.registerVehicleArrival(vehicleData.vehicleNumber, slot.id);
@@ -975,9 +979,13 @@ class ParkingSystem {
     }
     
     attemptAutoAllocation() {
-        const allocation = this.dynamicAllocator.allocateNextAvailableSlot();
-        if (allocation) {
+        this.syncAvailableSlots();
+        let allocation = this.dynamicAllocator.allocateNextAvailableSlot();
+        let safetyCounter = 0;
+        while (allocation && safetyCounter < 100) {
             this.autoBookSlot(allocation.vehicle, allocation.slot);
+            allocation = this.dynamicAllocator.allocateNextAvailableSlot();
+            safetyCounter++;
         }
     }
     
@@ -988,6 +996,10 @@ class ParkingSystem {
         slot.vehicleType = vehicle.type;
         slot.driverName = vehicle.driverName;
         slot.bookingTime = new Date();
+        // Remove from allocator available slots and waiting UI
+        this.dynamicAllocator.availableSlots.delete(slot.id);
+        this.waitingVehicles = this.waitingVehicles.filter(v => v.licensePlate !== vehicle.licensePlate);
+        this.updateWaitingQueueDisplay();
         
         // Add to bookings
         this.bookings.unshift({
@@ -1031,9 +1043,20 @@ class ParkingSystem {
     }
 
     // Advanced Features Implementation
+    // Keep allocator's available slots in sync with current state
+    syncAvailableSlots() {
+        this.dynamicAllocator.availableSlots.clear();
+        for (const slot of this.parkingSlots) {
+            if (slot.isAvailable) {
+                this.dynamicAllocator.availableSlots.set(slot.id, slot);
+            }
+        }
+    }
 
     // 1. Dynamic Slot Assignment with Min Heap
     findNearestAvailableSlot(vehicleType, preferredLane = null) {
+        // Reset heap per search to avoid stale entries
+        this.minHeap = new MinHeap();
         const availableSlots = this.parkingSlots.filter(slot => 
             slot.isAvailable && this.isCompatibleSlot(vehicleType, slot)
         );
@@ -1200,6 +1223,8 @@ class ParkingSystem {
         slot.vehicleType = vehicleData.vehicleType;
         slot.driverName = vehicleData.driverName;
         slot.bookingTime = new Date();
+        // Keep allocator map in sync
+        this.dynamicAllocator.availableSlots.delete(slot.id);
 
         // Register with search system
         this.registerVehicleArrival(vehicleData.vehicleNumber, slot.id);
@@ -1327,6 +1352,9 @@ class ParkingSystem {
         slot.driverName = null;
         slot.phoneNumber = null;
         slot.bookingTime = null;
+        // Add back to allocator available slots and try allocating to waiters
+        this.dynamicAllocator.availableSlots.set(slotId, slot);
+        this.attemptAutoAllocation();
 
         // Update UI
         this.renderParkingGrid();

@@ -675,18 +675,33 @@ class ParkingSystem {
                     const statusClass = this.getSlotStatusClass(slot);
                     slotElement.className = `parking-slot ${statusClass}`;
                     slotElement.dataset.slotId = slot.id;
-                    
+
+                    const statusText = this.getSlotStatusText(slot);
+                    // Accessibility: make slots focusable and screen-reader friendly
+                    slotElement.setAttribute('tabindex', '0');
+                    slotElement.setAttribute('aria-label', `Slot ${slot.id}, ${statusText}`);
+
                     slotElement.innerHTML = `
                         <div class="slot-number">${slot.id}</div>
-                        <div class="slot-status">${this.getSlotStatusText(slot)}</div>
+                        <div class="slot-status">${statusText}</div>
                         ${slot.vehicleNumber ? `<div class="slot-vehicle">${slot.vehicleNumber}</div>` : ''}
                         ${slot.plannedDuration ? `<div class="slot-duration">${slot.plannedDuration}min</div>` : ''}
                         ${slot.priority !== 'regular' ? `<div class="slot-priority">${slot.priority.toUpperCase()}</div>` : ''}
                     `;
 
-                    // Add click event for available slots
+                    // Add click and keyboard activation for available slots
                     if (slot.isAvailable) {
+                        slotElement.setAttribute('role', 'button');
+                        slotElement.setAttribute('aria-pressed', 'false');
                         slotElement.addEventListener('click', () => this.selectSlot(slot.id));
+                        slotElement.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                this.selectSlot(slot.id);
+                            }
+                        });
+                    } else {
+                        slotElement.setAttribute('aria-disabled', 'true');
                     }
 
                     container.appendChild(slotElement);

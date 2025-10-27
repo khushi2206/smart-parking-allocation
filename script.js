@@ -1,6 +1,271 @@
 /* ---------- Utilities (Minimal) ---------- */
 const now = () => new Date();
 
+/* ---------- Binary Search Tree for Slot Management ---------- */
+
+// BST Node for Parking Slots
+class BSTNode {
+    constructor(slot) {
+        this.slot = slot;
+        this.left = null;
+        this.right = null;
+        this.height = 1; // For AVL balancing
+    }
+}
+
+// Binary Search Tree for Efficient Slot Management
+class SlotBST {
+    constructor() {
+        this.root = null;
+        this.size = 0;
+    }
+    
+    // Get height of a node
+    getHeight(node) {
+        return node ? node.height : 0;
+    }
+    
+    // Update height of a node
+    updateHeight(node) {
+        if (node) {
+            node.height = 1 + Math.max(this.getHeight(node.left), this.getHeight(node.right));
+        }
+    }
+    
+    // Get balance factor
+    getBalance(node) {
+        return node ? this.getHeight(node.left) - this.getHeight(node.right) : 0;
+    }
+    
+    // Right rotation
+    rotateRight(y) {
+        const x = y.left;
+        const T2 = x.right;
+        
+        x.right = y;
+        y.left = T2;
+        
+        this.updateHeight(y);
+        this.updateHeight(x);
+        
+        return x;
+    }
+    
+    // Left rotation
+    rotateLeft(x) {
+        const y = x.right;
+        const T2 = y.left;
+        
+        y.left = x;
+        x.right = T2;
+        
+        this.updateHeight(x);
+        this.updateHeight(y);
+        
+        return y;
+    }
+    
+    // Insert a slot into BST
+    insert(slot) {
+        this.root = this._insert(this.root, slot);
+        this.size++;
+    }
+    
+    _insert(node, slot) {
+        if (!node) {
+            return new BSTNode(slot);
+        }
+        
+        // Insert based on slot ID
+        if (slot.id < node.slot.id) {
+            node.left = this._insert(node.left, slot);
+        } else if (slot.id > node.slot.id) {
+            node.right = this._insert(node.right, slot);
+        } else {
+            // Update existing slot
+            node.slot = slot;
+            return node;
+        }
+        
+        // Update height
+        this.updateHeight(node);
+        
+        // Get balance factor
+        const balance = this.getBalance(node);
+        
+        // Left Left Case
+        if (balance > 1 && slot.id < node.left.slot.id) {
+            return this.rotateRight(node);
+        }
+        
+        // Right Right Case
+        if (balance < -1 && slot.id > node.right.slot.id) {
+            return this.rotateLeft(node);
+        }
+        
+        // Left Right Case
+        if (balance > 1 && slot.id > node.left.slot.id) {
+            node.left = this.rotateLeft(node.left);
+            return this.rotateRight(node);
+        }
+        
+        // Right Left Case
+        if (balance < -1 && slot.id < node.right.slot.id) {
+            node.right = this.rotateRight(node.right);
+            return this.rotateLeft(node);
+        }
+        
+        return node;
+    }
+    
+    // Search for a slot by ID
+    search(slotId) {
+        return this._search(this.root, slotId);
+    }
+    
+    _search(node, slotId) {
+        if (!node) return null;
+        
+        if (slotId === node.slot.id) {
+            return node.slot;
+        } else if (slotId < node.slot.id) {
+            return this._search(node.left, slotId);
+        } else {
+            return this._search(node.right, slotId);
+        }
+    }
+    
+    // Find available slots for a specific vehicle type
+    findAvailableSlots(vehicleType) {
+        const availableSlots = [];
+        this._inorderTraversal(this.root, (slot) => {
+            if (slot.isAvailable && slot.lane === vehicleType) {
+                availableSlots.push(slot);
+            }
+        });
+        return availableSlots;
+    }
+    
+    // Find slots in a range
+    findSlotsInRange(minId, maxId) {
+        const slotsInRange = [];
+        this._rangeSearch(this.root, minId, maxId, slotsInRange);
+        return slotsInRange;
+    }
+    
+    _rangeSearch(node, minId, maxId, result) {
+        if (!node) return;
+        
+        if (node.slot.id >= minId) {
+            this._rangeSearch(node.left, minId, maxId, result);
+        }
+        
+        if (node.slot.id >= minId && node.slot.id <= maxId) {
+            result.push(node.slot);
+        }
+        
+        if (node.slot.id <= maxId) {
+            this._rangeSearch(node.right, minId, maxId, result);
+        }
+    }
+    
+    // Inorder traversal
+    _inorderTraversal(node, callback) {
+        if (node) {
+            this._inorderTraversal(node.left, callback);
+            callback(node.slot);
+            this._inorderTraversal(node.right, callback);
+        }
+    }
+    
+    // Get all slots as array
+    getAllSlots() {
+        const allSlots = [];
+        this._inorderTraversal(this.root, (slot) => allSlots.push(slot));
+        return allSlots;
+    }
+    
+    // Delete a slot
+    delete(slotId) {
+        this.root = this._delete(this.root, slotId);
+        this.size--;
+    }
+    
+    _delete(node, slotId) {
+        if (!node) return node;
+        
+        if (slotId < node.slot.id) {
+            node.left = this._delete(node.left, slotId);
+        } else if (slotId > node.slot.id) {
+            node.right = this._delete(node.right, slotId);
+        } else {
+            // Node to be deleted found
+            if (!node.left) {
+                return node.right;
+            } else if (!node.right) {
+                return node.left;
+            }
+            
+            // Node with two children: get inorder successor
+            const minValueNode = this._getMinValueNode(node.right);
+            node.slot = minValueNode.slot;
+            node.right = this._delete(node.right, minValueNode.slot.id);
+        }
+        
+        this.updateHeight(node);
+        
+        const balance = this.getBalance(node);
+        
+        // Left Left Case
+        if (balance > 1 && this.getBalance(node.left) >= 0) {
+            return this.rotateRight(node);
+        }
+        
+        // Left Right Case
+        if (balance > 1 && this.getBalance(node.left) < 0) {
+            node.left = this.rotateLeft(node.left);
+            return this.rotateRight(node);
+        }
+        
+        // Right Right Case
+        if (balance < -1 && this.getBalance(node.right) <= 0) {
+            return this.rotateLeft(node);
+        }
+        
+        // Right Left Case
+        if (balance < -1 && this.getBalance(node.right) > 0) {
+            node.right = this.rotateRight(node.right);
+            return this.rotateLeft(node);
+        }
+        
+        return node;
+    }
+    
+    _getMinValueNode(node) {
+        let current = node;
+        while (current.left) {
+            current = current.left;
+        }
+        return current;
+    }
+    
+    // Get size
+    getSize() {
+        return this.size;
+    }
+    
+    // Check if empty
+    isEmpty() {
+        return this.size === 0;
+    }
+    
+    // Clear all slots
+    clear() {
+        this.root = null;
+        this.size = 0;
+    }
+}
+
 // --- Simplified Waitlist System (Pure FIFO Queue) ---
 // --- Simplified Waitlist System (FIFO Queue with VIP Priority) ---
 class WaitlistSystem {
@@ -106,16 +371,19 @@ class ParkingGraph {
 }
 
 
-/* ---------- Main ParkingSystem (Simplified) ---------- */
+/* ---------- Main ParkingSystem (Enhanced with BST) ---------- */
 class ParkingSystem {
-    constructor(options={}) {
-        this.parkingSlots = [];
-        this.bookings = []; 
-        this.selectedSlot = null; // Stubs remain, but unused in simplified flow
+    constructor(options={}) {
+        this.parkingSlots = [];
+        this.bookings = []; 
+        this.selectedSlot = null; // Stubs remain, but unused in simplified flow
 
-        // Subsystems
-        this.parkingGraph = new ParkingGraph();
-        this.waitlist = new WaitlistSystem();
+        // BST for efficient slot management
+        this.slotBST = new SlotBST();
+
+        // Subsystems
+        this.parkingGraph = new ParkingGraph();
+        this.waitlist = new WaitlistSystem();
 
         // Lane configuration
         this.lanes = options.lanes || {
@@ -132,14 +400,15 @@ class ParkingSystem {
         this.init();
     }
 
-    init(){
-        this.initializeSlots();
-        this.initializeMultiLevelParking();
-        this.renderParkingGrid();
-        this.bindEvents();
-        this.updateStatus();
-        this.populateSlotOptions();
-    }
+    init(){
+        this.initializeSlots();
+        this.initializeMultiLevelParking();
+        this.initializeBST();
+        this.renderParkingGrid();
+        this.bindEvents();
+        this.updateStatus();
+        this.populateSlotOptions();
+    }
 
     /* ---------------- slot initialization ---------------- */
     initializeSlots(){
@@ -170,12 +439,19 @@ class ParkingSystem {
         };
     }
 
-    initializeMultiLevelParking(){
-        const half = Math.ceil(this.parkingSlots.length / 2);
-        this.parkingGraph.addFloor('ground', this.parkingSlots.slice(0, half));
-        this.parkingGraph.addFloor('first', this.parkingSlots.slice(half));
-        this.parkingGraph.addConnection('ground','first',1);
-    }
+    initializeMultiLevelParking(){
+        const half = Math.ceil(this.parkingSlots.length / 2);
+        this.parkingGraph.addFloor('ground', this.parkingSlots.slice(0, half));
+        this.parkingGraph.addFloor('first', this.parkingSlots.slice(half));
+        this.parkingGraph.addConnection('ground','first',1);
+    }
+
+    initializeBST(){
+        // Insert all slots into BST for efficient management
+        this.parkingSlots.forEach(slot => {
+            this.slotBST.insert(slot);
+        });
+    }
 
     /* ---------------- compatibility ---------------- */
     isCompatibleSlot(vehicleType, slot){
@@ -190,69 +466,69 @@ class ParkingSystem {
     
     
 
-    /* ---------------- find nearest slot (graph-based) ---------------- */
-    findNearestSlotByGraph(vehicleType, startFloor='ground'){
-        const floors = this.parkingGraph.getFloorsByProximity(startFloor);
-        
-        for (const f of floors){
-            const available = this.parkingGraph.getAvailableSlotsOnFloor(f.floor, vehicleType, (vt, s)=>{
-                const ok = this.isCompatibleSlot(vt, s);
-                if(ok && s.isAvailable) {
-                    console.log(`[DEBUG] Candidate slot on floor "${f.floor}": Slot ${s.id} (${s.lane})`);
-                }
-                return ok;
-            });
-            
-            if (available && available.length) {
-                console.log(`[DEBUG] Allocating Slot ${available[0].id} to vehicle type "${vehicleType}"`);
-                return available[0];
-            }
-        }
-    
-        console.warn(`[WARN] No available slot found for vehicle type "${vehicleType}"`);
-        return null;
-    }
-    
+    /* ---------------- find nearest slot (BST-based) ---------------- */
+    findNearestSlotByBST(vehicleType){
+        // Use BST to find available slots for the vehicle type
+        const availableSlots = this.slotBST.findAvailableSlots(vehicleType);
+        
+        if (availableSlots.length > 0) {
+            console.log(`[DEBUG] Found ${availableSlots.length} available slots for vehicle type "${vehicleType}"`);
+            return availableSlots[0]; // Return first available slot
+        }
+        
+        console.warn(`[WARN] No available slot found for vehicle type "${vehicleType}"`);
+        return null;
+    }
+    
+    /* ---------------- find slots in range (BST feature) ---------------- */
+    findSlotsInRange(minId, maxId){
+        return this.slotBST.findSlotsInRange(minId, maxId);
+    }
 
-    /* ---------------- dynamic allocation strategy (simplified) ---------------- */
-    dynamicAllocate(vehicleType){
-        // Finds nearest compatible slot, prioritizing proximity
-        const nearest = this.findNearestSlotByGraph(vehicleType, 'ground');
-        if (nearest) return nearest;
-        const any = this.parkingSlots.find(s => s.isAvailable && this.isCompatibleSlot(vehicleType, s));
-        return any || null;
-    }
+    /* ---------------- dynamic allocation strategy (BST-enhanced) ---------------- */
+    dynamicAllocate(vehicleType){
+        // Use BST for efficient slot finding
+        const availableSlot = this.findNearestSlotByBST(vehicleType);
+        if (availableSlot) return availableSlot;
+        
+        // Fallback to linear search if BST doesn't find anything
+        const any = this.parkingSlots.find(s => s.isAvailable && this.isCompatibleSlot(vehicleType, s));
+        return any || null;
+    }
 
-    /* ---------------- allocation ---------------- */
-    allocateSlot(slot, vehicleData){
-        slot.isAvailable = false;
-        slot.vehicleNumber = vehicleData.vehicleNumber;
-        slot.vehicleType = vehicleData.vehicleType;
-        slot.driverName = vehicleData.driverName;
-        slot.phoneNumber = vehicleData.phoneNumber;
-        slot.bookingTime = now(); 
-        slot.status = 'occupied';
-    
-        const bookingRecord = {
-            id: Date.now() + Math.random(),
-            slotId: slot.id,
-            vehicleNumber: slot.vehicleNumber,
-            vehicleType: slot.vehicleType,
-            driverName: slot.driverName,
-            phoneNumber: slot.phoneNumber,
-            bookingTime: slot.bookingTime,
-        };
-        this.bookings.unshift(bookingRecord);
-        this.saveBooking(bookingRecord).catch(()=>{});
-    
-        this.renderParkingGridDebounced();
-        this.updateStatus();
-    
-        // <-- Add pop-up message here
-        this.showMessage(`✅ Slot ${slot.id} allocated to vehicle ${slot.vehicleNumber}!`, 'success');
-    
-        return { status: 'allocated', slot: slot.id };
-    }
+    /* ---------------- allocation ---------------- */
+    allocateSlot(slot, vehicleData){
+        slot.isAvailable = false;
+        slot.vehicleNumber = vehicleData.vehicleNumber;
+        slot.vehicleType = vehicleData.vehicleType;
+        slot.driverName = vehicleData.driverName;
+        slot.phoneNumber = vehicleData.phoneNumber;
+        slot.bookingTime = now(); 
+        slot.status = 'occupied';
+    
+        // Update slot in BST
+        this.slotBST.insert(slot);
+    
+        const bookingRecord = {
+            id: Date.now() + Math.random(),
+            slotId: slot.id,
+            vehicleNumber: slot.vehicleNumber,
+            vehicleType: slot.vehicleType,
+            driverName: slot.driverName,
+            phoneNumber: slot.phoneNumber,
+            bookingTime: slot.bookingTime,
+        };
+        this.bookings.unshift(bookingRecord);
+        this.saveBooking(bookingRecord).catch(()=>{});
+    
+        this.renderParkingGridDebounced();
+        this.updateStatus();
+    
+        // <-- Add pop-up message here
+        this.showMessage(`✅ Slot ${slot.id} allocated to vehicle ${slot.vehicleNumber}!`, 'success');
+    
+        return { status: 'allocated', slot: slot.id };
+    }
     
     // Auto-notify waitlist when a slot frees
     notifyWaitlistForSlot(slot){
@@ -309,35 +585,38 @@ class ParkingSystem {
         this.populateSlotOptions();
     }
 
-    /* ---------------- release processing (complete) ---------------- */
-    processRelease(){
-        const vehicleNumber = document.getElementById('releaseVehicleNumber').value.trim();
-        if (!vehicleNumber) {
-            this.showMessage('Please enter vehicle number.', 'error');
-            return;
-        }
-        const slot = this.parkingSlots.find(s => s.vehicleNumber && s.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
-        if (!slot) {
-            this.showMessage('Vehicle not found.', 'error');
-            return;
-        }
-    
-        // <-- Add pop-up message here
-        this.showMessage(`🅾️ Slot ${slot.id} released from vehicle ${vehicleNumber}.`, 'info');
-    
-        // free slot
-        slot.isAvailable = true;
-        slot.vehicleNumber = null; slot.vehicleType = null; slot.driverName = null; slot.phoneNumber = null;
-        slot.bookingTime = null; slot.status='available';
-    
-        // notify waitlist
-        this.notifyWaitlistForSlot(slot);
-    
-        this.renderParkingGrid();
-        this.updateStatus();
-        this.hideReleaseModal();
-        this.populateSlotOptions();
-    }
+    /* ---------------- release processing (complete) ---------------- */
+    processRelease(){
+        const vehicleNumber = document.getElementById('releaseVehicleNumber').value.trim();
+        if (!vehicleNumber) {
+            this.showMessage('Please enter vehicle number.', 'error');
+            return;
+        }
+        const slot = this.parkingSlots.find(s => s.vehicleNumber && s.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
+        if (!slot) {
+            this.showMessage('Vehicle not found.', 'error');
+            return;
+        }
+    
+        // <-- Add pop-up message here
+        this.showMessage(`🅾️ Slot ${slot.id} released from vehicle ${vehicleNumber}.`, 'info');
+    
+        // free slot
+        slot.isAvailable = true;
+        slot.vehicleNumber = null; slot.vehicleType = null; slot.driverName = null; slot.phoneNumber = null;
+        slot.bookingTime = null; slot.status='available';
+    
+        // Update slot in BST
+        this.slotBST.insert(slot);
+    
+        // notify waitlist
+        this.notifyWaitlistForSlot(slot);
+    
+        this.renderParkingGrid();
+        this.updateStatus();
+        this.hideReleaseModal();
+        this.populateSlotOptions();
+    }
     
 
     /* ---------------- UI rendering & helpers ---------------- */
@@ -515,22 +794,38 @@ class ParkingSystem {
 
     // ... in ParkingSystem class ...
 
-    updateAdminPanel(){
-        this.renderBookingsList();
-        const reportEl = document.getElementById('adminReport');
-        if (reportEl) {
-            reportEl.innerHTML = `
-                <div>Total Bookings: ${this.bookings.length}</div>
+    updateAdminPanel(){
+        this.renderBookingsList();
+        const reportEl = document.getElementById('adminReport');
+        if (reportEl) {
+            // Get BST statistics
+            const bstSize = this.slotBST.getSize();
+            const availableSlots = this.slotBST.findAvailableSlots('car').length + 
+                                 this.slotBST.findAvailableSlots('twoWheeler').length + 
+                                 this.slotBST.findAvailableSlots('truck').length;
+            
+            reportEl.innerHTML = `
+                <div>Total Bookings: ${this.bookings.length}</div>
                 <div>Total Waiting: Car: ${this.waitlist.peekAll('car')}, 2-Wheeler: ${this.waitlist.peekAll('twoWheeler')}, Truck: ${this.waitlist.peekAll('truck')}</div>
-                <div>**Waitlist Breakdown (VIP / Regular)**:</div>
+                <div>**Waitlist Breakdown (VIP / Regular)**:</div>
                 <ul>
                     <li>🚗 Car: **${this.waitlist.peekVIP('car')}** / ${this.waitlist.peekRegular('car')}</li>
                     <li>🏍️ 2-Wheeler: **${this.waitlist.peekVIP('twoWheeler')}** / ${this.waitlist.peekRegular('twoWheeler')}</li>
                     <li>🚚 Truck: **${this.waitlist.peekVIP('truck')}** / ${this.waitlist.peekRegular('truck')}</li>
                 </ul>
-            `;
-        }
-    }
+                <div><strong>BST Data Structure Stats:</strong></div>
+                <ul>
+                    <li>Total Slots in BST: ${bstSize}</li>
+                    <li>Available Slots: ${availableSlots}</li>
+                    <li>BST Height: ${this.getBSTHeight()}</li>
+                </ul>
+            `;
+        }
+    }
+    
+    getBSTHeight(){
+        return this.slotBST.getHeight(this.slotBST.root);
+    }
 
     renderBookingsList(){
         const listContainer = document.getElementById('bookingsList');

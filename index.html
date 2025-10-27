@@ -152,18 +152,8 @@
                             <div class="legend-color booked"></div>
                             <span>Occupied</span>
                         </div>
-                        <div class="legend-item">
-                            <div class="legend-color reserved"></div>
-                            <span>Reserved</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color overstayed"></div>
-                            <span>Overstayed</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color vip"></div>
-                            <span>VIP</span>
-                        </div>
+                       
+
                     </div>
                 </div>
             </div>
@@ -187,10 +177,7 @@
                                 <h4>Occupancy Rate</h4>
                                 <div class="stat-value" id="occupancyRate">0%</div>
                             </div>
-                            <div class="stat-card">
-                                <h4>Peak Hours</h4>
-                                <div class="stat-value">9:00 AM</div>
-                            </div>
+                            
                         </div>
                     </div>
                 </div>
@@ -215,7 +202,7 @@
                     <select id="vehicleType" required>
                         <option value="">Select Type</option>
                         <option value="car">Car</option>
-                        <option value="motorcycle">Motorcycle</option>
+                        <option value="twoWheeler">Motorcycle</option>
                         <option value="truck">Truck</option>
                     </select>
                 </div>
@@ -227,27 +214,14 @@
                     <label for="phoneNumber">Phone Number</label>
                     <input type="tel" id="phoneNumber" placeholder="Enter phone number">
                 </div>
-                <div class="form-group">
-                    <label for="priority">Priority Level</label>
-                    <select id="priority">
-                        <option value="regular">Regular</option>
-                        <option value="premium">Premium</option>
-                        <option value="vip">VIP</option>
-                        <option value="emergency">Emergency</option>
-                        <option value="late">Late Arrival</option>
-                    </select>
+                
+                <div class="form-group" id="priorityRow" style="display:none; margin-top: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
+                        <input type="checkbox" id="isVIPCheckbox" style="width: auto;">
+                        Book as **VIP Customer** (Priority Allocation)
+                    </label>
                 </div>
-                <div class="form-group">
-                    <label for="plannedDuration">Planned Duration (minutes)</label>
-                    <input type="number" id="plannedDuration" placeholder="e.g., 120 (2 hours)" min="30" max="480">
-                    <small style="color: #a0aec0; font-size: 0.8rem;">Optional: Helps with slot management</small>
-                </div>
-                <div class="form-group">
-                    <label for="slotNumber">Preferred Slot</label>
-                    <select id="slotNumber">
-                        <option value="">Auto-assign</option>
-                    </select>
-                </div>
+                
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" id="cancelBooking">Cancel</button>
                     <button type="submit" class="btn btn-primary">Book Slot</button>
@@ -255,7 +229,6 @@
             </form>
         </div>
     </div>
-
     <!-- Release Modal -->
     <div id="releaseModal" class="modal">
         <div class="modal-content">

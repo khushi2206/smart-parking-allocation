@@ -67,8 +67,16 @@ class SlotBST {
     
     // Insert a slot into BST
     insert(slot) {
+        const prevSize = this.countNodes(this.root);
         this.root = this._insert(this.root, slot);
-        this.size++;
+        const newSize = this.countNodes(this.root);
+        this.size = newSize; // Update size based on actual node count
+    }
+    
+    // Count nodes in tree
+    countNodes(node) {
+        if (!node) return 0;
+        return 1 + this.countNodes(node.left) + this.countNodes(node.right);
     }
     
     _insert(node, slot) {
@@ -402,7 +410,7 @@ class ParkingSystem {
                 {slots:10,container:'twoWheelerLane3Slots',available:'twoWheelerLane3Available'},
                 {slots:10,container:'twoWheelerLane4Slots',available:'twoWheelerLane4Available'}
             ], sectionAvailable:'twoWheelerAvailable' },
-            truck: { totalSlots:10, lanes:[{slots:10,container:'truckLane1Slots',available:'truckLane1Available'}], sectionAvailable:'truckAvailable' }
+            truck: { totalSlots:20, lanes:[{slots:20,container:'truckLane1Slots',available:'truckLane1Available'}], sectionAvailable:'truckAvailable' }
         };
 
         this.init();

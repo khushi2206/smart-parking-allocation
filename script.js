@@ -376,6 +376,7 @@ class ParkingSystem {
     constructor(options={}) {
         this.parkingSlots = [];
         this.bookings = []; 
+        this.tokens = []; // Track all parking tokens
         this.selectedSlot = null; // Stubs remain, but unused in simplified flow
 
         // BST for efficient slot management
@@ -384,6 +385,13 @@ class ParkingSystem {
         // Subsystems
         this.parkingGraph = new ParkingGraph();
         this.waitlist = new WaitlistSystem();
+        
+        // Pricing structure (per day)
+        this.pricing = {
+            car: 120,
+            twoWheeler: 50,
+            truck: 300
+        };
 
         // Lane configuration
         this.lanes = options.lanes || {
@@ -509,6 +517,10 @@ class ParkingSystem {
         // Update slot in BST
         this.slotBST.insert(slot);
     
+        // Generate parking token
+        const tokenId = this.generateTokenId();
+        const dailyRate = this.pricing[slot.vehicleType] || 0;
+        
         const bookingRecord = {
             id: Date.now() + Math.random(),
             slotId: slot.id,
@@ -517,27 +529,41 @@ class ParkingSystem {
             driverName: slot.driverName,
             phoneNumber: slot.phoneNumber,
             bookingTime: slot.bookingTime,
+            tokenId: tokenId,
+            dailyRate: dailyRate,
+            status: 'active'
         };
         this.bookings.unshift(bookingRecord);
+        this.tokens.push(bookingRecord); // Store in tokens array
         this.saveBooking(bookingRecord).catch(()=>{});
     
         this.renderParkingGridDebounced();
         this.updateStatus();
     
         // <-- Add pop-up message here
-        this.showMessage(`✅ Slot ${slot.id} allocated to vehicle ${slot.vehicleNumber}!`, 'success');
+        this.showMessage(`✅ Slot ${slot.id} allocated to vehicle ${slot.vehicleNumber}! Token: ${tokenId}`, 'success');
     
-        return { status: 'allocated', slot: slot.id };
+        return { status: 'allocated', slot: slot.id, tokenId: tokenId };
     }
     
-    // Auto-notify waitlist when a slot frees
-    notifyWaitlistForSlot(slot){
-        const popped = this.waitlist.pop(slot.lane);
-        if (popped) {
-            this.showMessage(`Allocating freed slot ${slot.id} to waitlisted vehicle ${popped.vehicleNumber}`, 'success');
-            this.allocateSlot(slot, popped);
-        }
-    }
+    // Generate unique token ID
+    generateTokenId(){
+        const date = new Date();
+        const dateStr = date.getFullYear() + 
+                       String(date.getMonth() + 1).padStart(2, '0') + 
+                       String(date.getDate()).padStart(2, '0');
+        const random = String(Math.floor(Math.random() * 99999)).padStart(5, '0');
+        return `TKN-${dateStr}-${random}`;
+    }
+    
+    // Auto-notify waitlist when a slot frees
+    notifyWaitlistForSlot(slot){
+        const popped = this.waitlist.pop(slot.lane);
+        if (popped) {
+            this.showMessage(`Allocating freed slot ${slot.id} to waitlisted vehicle ${popped.vehicleNumber}`, 'success');
+            this.allocateSlot(slot, popped);
+        }
+    }
     
 
     /* ---------------- booking processing (complete) ---------------- */
@@ -596,6 +622,13 @@ class ParkingSystem {
         if (!slot) {
             this.showMessage('Vehicle not found.', 'error');
             return;
+        }
+    
+        // Mark token as completed
+        const booking = this.bookings.find(b => b.vehicleNumber === vehicleNumber && b.status === 'active');
+        if (booking) {
+            booking.status = 'completed';
+            booking.exitTime = now();
         }
     
         // <-- Add pop-up message here
@@ -795,77 +828,461 @@ class ParkingSystem {
     // ... in ParkingSystem class ...
 
     updateAdminPanel(){
+        // Render active tokens
+        this.renderActiveTokens();
+        
+        // Render bookings list
         this.renderBookingsList();
-        const reportEl = document.getElementById('adminReport');
-        if (reportEl) {
-            // Get BST statistics
-            const bstSize = this.slotBST.getSize();
-            const availableSlots = this.slotBST.findAvailableSlots('car').length + 
-                                 this.slotBST.findAvailableSlots('twoWheeler').length + 
-                                 this.slotBST.findAvailableSlots('truck').length;
-            
-            reportEl.innerHTML = `
-                <div>Total Bookings: ${this.bookings.length}</div>
-                <div>Total Waiting: Car: ${this.waitlist.peekAll('car')}, 2-Wheeler: ${this.waitlist.peekAll('twoWheeler')}, Truck: ${this.waitlist.peekAll('truck')}</div>
-                <div>**Waitlist Breakdown (VIP / Regular)**:</div>
-                <ul>
-                    <li>🚗 Car: **${this.waitlist.peekVIP('car')}** / ${this.waitlist.peekRegular('car')}</li>
-                    <li>🏍️ 2-Wheeler: **${this.waitlist.peekVIP('twoWheeler')}** / ${this.waitlist.peekRegular('twoWheeler')}</li>
-                    <li>🚚 Truck: **${this.waitlist.peekVIP('truck')}** / ${this.waitlist.peekRegular('truck')}</li>
-                </ul>
-                <div><strong>BST Data Structure Stats:</strong></div>
-                <ul>
-                    <li>Total Slots in BST: ${bstSize}</li>
-                    <li>Available Slots: ${availableSlots}</li>
-                    <li>BST Height: ${this.getBSTHeight()}</li>
-                </ul>
-            `;
+        
+        // Update token counts
+        const activeTokens = this.bookings.filter(b => b.status === 'active').length;
+        const activeTokensCountEl = document.getElementById('activeTokensCount');
+        if (activeTokensCountEl) activeTokensCountEl.textContent = activeTokens;
+        
+        const totalBookingsCountEl = document.getElementById('totalBookingsCount');
+        if (totalBookingsCountEl) totalBookingsCountEl.textContent = this.bookings.length;
+        
+        // Calculate revenue statistics
+        let totalRevenue = 0;
+        let totalDuration = 0;
+        let activeCount = 0;
+        
+        this.bookings.forEach(booking => {
+            if (booking.status === 'active' && booking.bookingTime) {
+                const fee = this.calculateParkingFee(booking.bookingTime, booking.vehicleType);
+                totalRevenue += fee;
+                const duration = Math.ceil((new Date() - new Date(booking.bookingTime)) / (1000 * 60 * 60 * 24));
+                totalDuration += duration;
+                activeCount++;
+            }
+        });
+        
+        const avgDuration = activeCount > 0 ? Math.round(totalDuration / activeCount) : 0;
+        
+        // Update statistics
+        const el = (id) => document.getElementById(id);
+        
+        // Occupancy Rate
+        const available = this.parkingSlots.filter(s => s.isAvailable).length;
+        const booked = this.parkingSlots.filter(s => !s.isAvailable).length;
+        const total = this.parkingSlots.length;
+        const occupancyRate = Math.round((booked / total) * 100);
+        if (el('occupancyRate')) el('occupancyRate').textContent = `${occupancyRate}%`;
+        
+        // Total Revenue
+        if (el('totalRevenue')) el('totalRevenue').textContent = `₹${totalRevenue.toLocaleString()}`;
+        
+        // Active Vehicles
+        if (el('activeVehicles')) el('activeVehicles').textContent = activeCount;
+        
+        // Average Duration
+        if (el('avgDuration')) el('avgDuration').textContent = `${avgDuration} day${avgDuration !== 1 ? 's' : ''}`;
+        
+        // Vehicle Type Breakdown
+        const carCount = this.bookings.filter(b => b.status === 'active' && b.vehicleType === 'car').length;
+        const twoWheelerCount = this.bookings.filter(b => b.status === 'active' && b.vehicleType === 'twoWheeler').length;
+        const truckCount = this.bookings.filter(b => b.status === 'active' && b.vehicleType === 'truck').length;
+        
+        if (el('carCount')) el('carCount').textContent = carCount;
+        if (el('twoWheelerCount')) el('twoWheelerCount').textContent = twoWheelerCount;
+        if (el('truckCount')) el('truckCount').textContent = truckCount;
+        
+        // Waitlist Status
+        const totalWaiting = this.waitlist.peekAll('car') + this.waitlist.peekAll('twoWheeler') + this.waitlist.peekAll('truck');
+        const vipWaiting = this.waitlist.peekVIP('car') + this.waitlist.peekVIP('twoWheeler') + this.waitlist.peekVIP('truck');
+        
+        if (el('totalWaiting')) el('totalWaiting').textContent = totalWaiting;
+        if (el('vipWaiting')) el('vipWaiting').textContent = vipWaiting;
+        
+        // Setup search functionality if not already done
+        const searchInput = document.getElementById('tokenSearchInput');
+        if (searchInput && !searchInput.dataset.listenerAdded) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchTokens(e.target.value);
+            });
+            searchInput.dataset.listenerAdded = 'true';
         }
+        
+        // Update DSA Statistics
+        this.updateDSAStats();
+    }
+    
+    updateDSAStats(){
+        const el = (id) => document.getElementById(id);
+        
+        // === BST Statistics ===
+        const bstSize = this.slotBST.getSize();
+        const bstHeight = this.getBSTHeight();
+        const availableSlots = this.parkingSlots.filter(s => s.isAvailable).length;
+        
+        if (el('bstSize')) el('bstSize').textContent = bstSize;
+        if (el('bstHeight')) el('bstHeight').textContent = bstHeight;
+        if (el('bstAvailable')) el('bstAvailable').textContent = availableSlots;
+        
+        // BST Recent Operations
+        const bstOpsContainer = el('bstRecentOps');
+        if (bstOpsContainer) {
+            let opsHtml = '<div class="ops-title">Recent BST Operations:</div>';
+            
+            // Show last 3 bookings as BST operations
+            const recentBookings = this.bookings.slice(0, 3);
+            if (recentBookings.length > 0) {
+                recentBookings.forEach(booking => {
+                    const isActive = booking.status === 'active';
+                    const operation = isActive ? 'INSERT' : 'UPDATE';
+                    const className = isActive ? 'success' : '';
+                    opsHtml += `<div class="dsa-op-item ${className}">
+                        ${operation}: Slot ${booking.slotId} → ${booking.vehicleNumber} (${booking.vehicleType})
+                    </div>`;
+                });
+            } else {
+                opsHtml += '<div class="dsa-op-item">No operations yet - Tree initialized with ${bstSize} slots</div>';
+            }
+            
+            bstOpsContainer.innerHTML = opsHtml;
+        }
+        
+        // === Priority Queue (Waitlist) Statistics ===
+        const carVip = this.waitlist.peekVIP('car');
+        const twoWheelerVip = this.waitlist.peekVIP('twoWheeler');
+        const truckVip = this.waitlist.peekVIP('truck');
+        
+        const carRegular = this.waitlist.peekRegular('car');
+        const twoWheelerRegular = this.waitlist.peekRegular('twoWheeler');
+        const truckRegular = this.waitlist.peekRegular('truck');
+        
+        if (el('queueCars')) el('queueCars').textContent = `${carVip}/${carRegular}`;
+        if (el('queueTwoWheelers')) el('queueTwoWheelers').textContent = `${twoWheelerVip}/${twoWheelerRegular}`;
+        if (el('queueTrucks')) el('queueTrucks').textContent = `${truckVip}/${truckRegular}`;
+        
+        // Queue Status
+        const totalWaiting = carVip + carRegular + twoWheelerVip + twoWheelerRegular + truckVip + truckRegular;
+        const queueStatusEl = el('queueStatus');
+        if (queueStatusEl) {
+            if (totalWaiting === 0) {
+                queueStatusEl.innerHTML = '✅ All slots available - No waiting vehicles';
+                queueStatusEl.className = 'queue-status-msg';
+            } else {
+                queueStatusEl.innerHTML = `⏳ ${totalWaiting} vehicle(s) waiting. VIP customers will be served first!`;
+                queueStatusEl.className = 'queue-status-msg';
+                queueStatusEl.style.background = '#fffbeb';
+                queueStatusEl.style.color = '#d97706';
+            }
+        }
+        
+        // === Graph Statistics ===
+        const totalSlots = this.parkingSlots.length;
+        const totalLanes = Object.keys(this.lanes).length;
+        
+        // Calculate connections (each slot connected to neighbors in same lane)
+        let totalConnections = 0;
+        Object.values(this.lanes).forEach(laneConfig => {
+            laneConfig.lanes.forEach(lane => {
+                // Each lane with N slots has N-1 connections
+                if (lane.slots > 1) {
+                    totalConnections += (lane.slots - 1);
+                }
+            });
+        });
+        
+        if (el('graphVertices')) el('graphVertices').textContent = totalSlots;
+        if (el('graphEdges')) el('graphEdges').textContent = totalConnections;
+        if (el('graphLanes')) el('graphLanes').textContent = totalLanes;
+        
+        // Graph Layout Info
+        const graphOpsContainer = el('graphRecentOps');
+        if (graphOpsContainer) {
+            let graphHtml = '<div class="ops-title">Layout Structure:</div>';
+            
+            Object.entries(this.lanes).forEach(([vehicleType, config]) => {
+                const occupied = this.parkingSlots.filter(s => s.lane === vehicleType && !s.isAvailable).length;
+                const total = config.totalSlots;
+                const icon = vehicleType === 'car' ? '🚗' : vehicleType === 'truck' ? '🚚' : '🏍️';
+                
+                graphHtml += `<div class="graph-lane-info">
+                    <span>${icon} ${vehicleType.toUpperCase()}: ${config.lanes.length} lanes</span>
+                    <span>${occupied}/${total} occupied</span>
+                </div>`;
+            });
+            
+            graphOpsContainer.innerHTML = graphHtml;
+        }
+        
+        // === Stack Statistics (using bookings array as stack) ===
+        const stackSize = this.bookings.length;
+        const stackTop = this.bookings.length > 0 ? this.bookings[0].vehicleNumber : '-';
+        if (el('stackSize')) el('stackSize').textContent = stackSize;
+        if (el('stackTop')) el('stackTop').textContent = stackTop;
     }
     
     getBSTHeight(){
         return this.slotBST.getHeight(this.slotBST.root);
     }
 
-    renderBookingsList(){
-        const listContainer = document.getElementById('bookingsList');
-        if (!listContainer) return;
-        
-        let html = '<table><thead><tr><th>Slot</th><th>Vehicle</th><th>Type</th><th>Driver</th><th>Booked At</th><th>Status</th></tr></thead><tbody>';
-        
-        this.bookings.forEach(booking => {
-            const slot = this.parkingSlots.find(s => s.id === booking.slotId);
-            const isCurrentlyParked = slot && slot.vehicleNumber === booking.vehicleNumber && !slot.isAvailable;
-            
-            let statusText = 'Completed';
-            let statusClass = 'completed';
-            if (isCurrentlyParked) {
-                statusText = this.getSlotStatusText(slot);
-                statusClass = this.getSlotStatusClass(slot);
-            }
-            
-            html += `
-                <tr class="${isCurrentlyParked ? 'active-booking' : ''}">
-                    <td>${booking.slotId}</td>
-                    <td>${booking.vehicleNumber}</td>
-                    <td>${booking.vehicleType}</td>
-                    <td>${booking.driverName}</td>
-                    <td>${this.formatTime(booking.bookingTime)}</td>
-                    <td><span class="status-tag ${statusClass}">${statusText}</span></td>
-                </tr>
-            `;
-        });
-        
-        html += '</tbody></table>';
-        listContainer.innerHTML = html;
-    }
+    renderBookingsList(){
+        const listContainer = document.getElementById('bookingsList');
+        if (!listContainer) return;
+        
+        if (this.bookings.length === 0) {
+            listContainer.innerHTML = '<div class="empty-state">No bookings yet</div>';
+            return;
+        }
+        
+        let html = '';
+        
+        this.bookings.slice(0, 10).forEach(booking => {
+            const slot = this.parkingSlots.find(s => s.id === booking.slotId);
+            const isCurrentlyParked = slot && slot.vehicleNumber === booking.vehicleNumber && !slot.isAvailable;
+            
+            let statusText = isCurrentlyParked ? 'Active' : 'Completed';
+            let statusClass = isCurrentlyParked ? 'active' : 'completed';
+            
+            const vehicleIcon = booking.vehicleType === 'car' ? '🚗' : booking.vehicleType === 'truck' ? '🚚' : '🏍️';
+            const duration = booking.bookingTime ? Math.ceil((new Date() - new Date(booking.bookingTime)) / (1000 * 60 * 60 * 24)) : 0;
+            
+            html += `
+                <div class="booking-item ${isCurrentlyParked ? 'booking-active' : 'booking-completed'}">
+                    <div class="booking-main">
+                        <div class="booking-icon">${vehicleIcon}</div>
+                        <div class="booking-details">
+                            <div class="booking-vehicle">
+                                <strong>${booking.vehicleNumber}</strong>
+                                <span class="booking-status-badge ${statusClass}">${statusText}</span>
+                            </div>
+                            <div class="booking-info">
+                                <span class="booking-slot"><i class="fas fa-parking"></i> Slot ${booking.slotId}</span>
+                                <span class="booking-driver"><i class="fas fa-user"></i> ${booking.driverName}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="booking-meta">
+                        <div class="booking-time">
+                            <i class="fas fa-clock"></i> ${this.formatTime(booking.bookingTime)}
+                        </div>
+                        ${isCurrentlyParked ? `<div class="booking-duration">${duration} day(s)</div>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        listContainer.innerHTML = html;
+    }
 
-    formatTime(date){
-        if (!date) return '-';
-        return new Intl.DateTimeFormat('en-US',{hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'}).format(date);
-    }
+    formatTime(date){
+        if (!date) return '-';
+        return new Intl.DateTimeFormat('en-US',{hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'}).format(date);
+    }
 
-    refreshData(){
+    /* ---------------- Token Management Methods ---------------- */
+    calculateParkingFee(entryTime, vehicleType){
+        if (!entryTime) return 0;
+        const now = new Date();
+        const entry = new Date(entryTime);
+        const durationMs = now - entry;
+        const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24)); // Round up to full days
+        const dailyRate = this.pricing[vehicleType] || 0;
+        return durationDays * dailyRate;
+    }
+
+    generateTokenHTML(booking){
+        const currentFee = this.calculateParkingFee(booking.bookingTime, booking.vehicleType);
+        const duration = booking.bookingTime ? Math.ceil((new Date() - new Date(booking.bookingTime)) / (1000 * 60 * 60 * 24)) : 0;
+        const vehicleIcon = booking.vehicleType === 'car' ? '🚗' : booking.vehicleType === 'truck' ? '🚚' : '🏍️';
+        
+        return `
+            <div class="token-card" data-token-id="${booking.tokenId}">
+                <div class="token-header">
+                    <div class="token-id">
+                        <strong>Token:</strong> ${booking.tokenId}
+                    </div>
+                    <div class="token-status ${booking.status}">
+                        ${booking.status === 'active' ? '🟢 Active' : '⚪ Completed'}
+                    </div>
+                </div>
+                <div class="token-body">
+                    <div class="token-qr">
+                        <div class="qr-placeholder">QR</div>
+                    </div>
+                    <div class="token-details">
+                        <div class="token-row">
+                            <span class="token-label">Vehicle:</span>
+                            <span class="token-value">${vehicleIcon} ${booking.vehicleNumber}</span>
+                        </div>
+                        <div class="token-row">
+                            <span class="token-label">Driver:</span>
+                            <span class="token-value">${booking.driverName}</span>
+                        </div>
+                        <div class="token-row">
+                            <span class="token-label">Slot:</span>
+                            <span class="token-value">${booking.slotId}</span>
+                        </div>
+                        <div class="token-row">
+                            <span class="token-label">Entry:</span>
+                            <span class="token-value">${this.formatTime(booking.bookingTime)}</span>
+                        </div>
+                        <div class="token-row">
+                            <span class="token-label">Type:</span>
+                            <span class="token-value">${booking.vehicleType}</span>
+                        </div>
+                        <div class="token-row">
+                            <span class="token-label">Rate:</span>
+                            <span class="token-value">₹${booking.dailyRate}/day</span>
+                        </div>
+                        <div class="token-row highlight">
+                            <span class="token-label">Duration:</span>
+                            <span class="token-value">${duration} day(s)</span>
+                        </div>
+                        <div class="token-row highlight">
+                            <span class="token-label">Current Fee:</span>
+                            <span class="token-value">₹${currentFee}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="token-actions">
+                    <button class="btn-token-download" onclick="parkingSystem.downloadToken('${booking.tokenId}')">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    ${booking.status === 'active' ? `
+                        <button class="btn-token-share" onclick="parkingSystem.shareToken('${booking.tokenId}')">
+                            <i class="fas fa-share"></i> Share
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    renderActiveTokens(){
+        const container = document.getElementById('activeTokensList');
+        if (!container) return;
+        
+        const activeBookings = this.bookings.filter(b => b.status === 'active');
+        
+        if (activeBookings.length === 0) {
+            container.innerHTML = '<div class="empty-state">No active tokens</div>';
+            return;
+        }
+        
+        let html = '';
+        activeBookings.forEach(booking => {
+            html += this.generateTokenHTML(booking);
+        });
+        
+        container.innerHTML = html;
+    }
+
+    searchTokens(query){
+        if (!query) {
+            this.renderActiveTokens();
+            return;
+        }
+        
+        const container = document.getElementById('activeTokensList');
+        if (!container) return;
+        
+        const filtered = this.bookings.filter(b => 
+            b.status === 'active' && 
+            (b.tokenId.toLowerCase().includes(query.toLowerCase()) ||
+             b.vehicleNumber.toLowerCase().includes(query.toLowerCase()))
+        );
+        
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="empty-state">No tokens found</div>';
+            return;
+        }
+        
+        let html = '';
+        filtered.forEach(booking => {
+            html += this.generateTokenHTML(booking);
+        });
+        
+        container.innerHTML = html;
+    }
+
+    downloadToken(tokenId){
+        const booking = this.bookings.find(b => b.tokenId === tokenId);
+        if (!booking) return;
+        
+        // Create a downloadable text representation
+        const duration = Math.ceil((new Date() - new Date(booking.bookingTime)) / (1000 * 60 * 60 * 24));
+        const currentFee = this.calculateParkingFee(booking.bookingTime, booking.vehicleType);
+        
+        const tokenText = `
+========================================
+    SMART PARKING ALLOCATION SYSTEM
+========================================
+
+Token ID: ${booking.tokenId}
+Status: ${booking.status.toUpperCase()}
+
+Vehicle Details:
+- Vehicle Number: ${booking.vehicleNumber}
+- Vehicle Type: ${booking.vehicleType}
+- Driver Name: ${booking.driverName}
+- Phone: ${booking.phoneNumber || 'N/A'}
+
+Parking Details:
+- Slot: ${booking.slotId}
+- Entry Time: ${this.formatTime(booking.bookingTime)}
+- Daily Rate: ₹${booking.dailyRate}
+- Duration: ${duration} day(s)
+- Current Fee: ₹${currentFee}
+
+${booking.status === 'active' ? 'Please present this token at exit.' : 'COMPLETED'}
+
+========================================
+        `;
+        
+        // Create blob and download
+        const blob = new Blob([tokenText], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `parking-token-${booking.tokenId}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        this.showMessage('Token downloaded successfully!', 'success');
+    }
+
+    shareToken(tokenId){
+        const booking = this.bookings.find(b => b.tokenId === tokenId);
+        if (!booking) return;
+        
+        const tokenUrl = `Token: ${booking.tokenId}\nVehicle: ${booking.vehicleNumber}\nSlot: ${booking.slotId}\nRate: ₹${booking.dailyRate}/day`;
+        
+        // Try to use native share API if available
+        if (navigator.share) {
+            navigator.share({
+                title: 'Parking Token',
+                text: tokenUrl
+            }).then(() => {
+                this.showMessage('Token shared successfully!', 'success');
+            }).catch(() => {
+                this.copyToClipboard(tokenUrl);
+            });
+        } else {
+            this.copyToClipboard(tokenUrl);
+        }
+    }
+
+    copyToClipboard(text){
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            this.showMessage('Token details copied to clipboard!', 'success');
+        } catch (err) {
+            this.showMessage('Failed to copy token details', 'error');
+        }
+        document.body.removeChild(textarea);
+    }
+
+    refreshData(){
         this.renderParkingGrid();
         this.updateStatus();
         this.populateSlotOptions();

@@ -162,22 +162,244 @@
         <!-- Admin Panel Section -->
         <section id="admin" class="page">
             <div class="container">
-                <h2>Admin Panel</h2>
-                <div class="admin-content">
-                    <div class="admin-section">
-                        <h3>Recent Bookings</h3>
-                        <div class="bookings-list" id="bookingsList">
+                <div class="admin-header">
+                    <h2><i class="fas fa-user-shield"></i> Admin Panel</h2>
+                    <p class="admin-subtitle">Manage parking tokens and monitor system performance</p>
+                </div>
+                
+                <!-- Admin Grid Layout -->
+                <div class="admin-grid">
+                    <!-- Active Tokens Section -->
+                    <div class="admin-card active-tokens-card">
+                        <div class="admin-card-header">
+                            <h3><i class="fas fa-ticket-alt"></i> Active Tokens</h3>
+                            <span class="badge" id="activeTokensCount">0</span>
+                        </div>
+                        <div class="admin-card-search">
+                            <input 
+                                type="text" 
+                                id="tokenSearchInput" 
+                                placeholder="Search by token ID or vehicle number..."
+                                class="search-input"
+                            >
+                            <i class="fas fa-search search-icon"></i>
+                        </div>
+                        <div class="admin-card-body scrollable" id="activeTokensList">
+                            <!-- Active tokens will be populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Recent Bookings Section -->
+                    <div class="admin-card bookings-card">
+                        <div class="admin-card-header">
+                            <h3><i class="fas fa-history"></i> Recent Bookings</h3>
+                            <span class="badge" id="totalBookingsCount">0</span>
+                        </div>
+                        <div class="admin-card-body scrollable" id="bookingsList">
                             <!-- Bookings will be populated by JavaScript -->
                         </div>
                     </div>
-                    <div class="admin-section">
-                        <h3>System Statistics</h3>
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <h4>Occupancy Rate</h4>
-                                <div class="stat-value" id="occupancyRate">0%</div>
+
+                    <!-- System Statistics Section -->
+                    <div class="admin-card stats-card">
+                        <div class="admin-card-header">
+                            <h3><i class="fas fa-chart-line"></i> System Statistics</h3>
+                        </div>
+                        <div class="admin-card-body">
+                            <div class="stat-item">
+                                <div class="stat-icon blue">
+                                    <i class="fas fa-percentage"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-label">Occupancy Rate</div>
+                                    <div class="stat-value" id="occupancyRate">0%</div>
+                                </div>
                             </div>
                             
+                            <div class="stat-item">
+                                <div class="stat-icon green">
+                                    <i class="fas fa-rupee-sign"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-label">Total Revenue</div>
+                                    <div class="stat-value" id="totalRevenue">₹0</div>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-item">
+                                <div class="stat-icon purple">
+                                    <i class="fas fa-car"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-label">Active Vehicles</div>
+                                    <div class="stat-value" id="activeVehicles">0</div>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-item">
+                                <div class="stat-icon orange">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-label">Avg. Duration</div>
+                                    <div class="stat-value" id="avgDuration">0 days</div>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-divider"></div>
+                            
+                            <div class="stat-breakdown">
+                                <h4>Vehicle Type Breakdown</h4>
+                                <div class="breakdown-item">
+                                    <span class="breakdown-label"><i class="fas fa-car"></i> Cars</span>
+                                    <span class="breakdown-value" id="carCount">0</span>
+                                </div>
+                                <div class="breakdown-item">
+                                    <span class="breakdown-label"><i class="fas fa-motorcycle"></i> Two-Wheelers</span>
+                                    <span class="breakdown-value" id="twoWheelerCount">0</span>
+                                </div>
+                                <div class="breakdown-item">
+                                    <span class="breakdown-label"><i class="fas fa-truck"></i> Trucks</span>
+                                    <span class="breakdown-value" id="truckCount">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-divider"></div>
+                            
+                            <div class="stat-breakdown">
+                                <h4>Waitlist Status</h4>
+                                <div class="breakdown-item">
+                                    <span class="breakdown-label">Total Waiting</span>
+                                    <span class="breakdown-value" id="totalWaiting">0</span>
+                                </div>
+                                <div class="breakdown-item">
+                                    <span class="breakdown-label">VIP Queue</span>
+                                    <span class="breakdown-value" id="vipWaiting">0</span>
+                                </div>
+                                <div class="info-note">
+                                    <i class="fas fa-info-circle"></i> 
+                                    <span>Waitlist shows 0 when slots are available. It fills only when parking is full!</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- DSA Highlights Section -->
+                <div class="dsa-showcase">
+                    <div class="dsa-header">
+                        <h2><i class="fas fa-code-branch"></i> Data Structures & Algorithms in Action</h2>
+                        <p>This project demonstrates multiple advanced DSA concepts</p>
+                    </div>
+                    
+                    <div class="dsa-grid">
+                        <!-- BST Card -->
+                        <div class="dsa-card">
+                            <div class="dsa-card-icon bst-icon">
+                                <i class="fas fa-project-diagram"></i>
+                            </div>
+                            <h3>Binary Search Tree (BST)</h3>
+                            <p class="dsa-description">Self-balancing AVL tree manages all parking slots by ID</p>
+                            <div class="dsa-stats">
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">Total Slots in Tree:</span>
+                                    <span class="dsa-value" id="bstSize">0</span>
+                                </div>
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">Tree Height (Balanced):</span>
+                                    <span class="dsa-value" id="bstHeight">0</span>
+                                </div>
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">Available Slots Found:</span>
+                                    <span class="dsa-value" id="bstAvailable">0</span>
+                                </div>
+                            </div>
+                            <div class="dsa-recent-ops" id="bstRecentOps">
+                                <div class="ops-title">Recent Operations:</div>
+                                <!-- Will be populated by JS -->
+                            </div>
+                        </div>
+                        
+                        <!-- Priority Queue Card -->
+                        <div class="dsa-card">
+                            <div class="dsa-card-icon queue-icon">
+                                <i class="fas fa-layer-group"></i>
+                            </div>
+                            <h3>Priority Queue (Waitlist)</h3>
+                            <p class="dsa-description">VIP customers served first when slots become available</p>
+                            <div class="dsa-stats">
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">🚗 Cars Waiting (VIP/Regular):</span>
+                                    <span class="dsa-value" id="queueCars">0/0</span>
+                                </div>
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">🏍️ Two-Wheelers (VIP/Regular):</span>
+                                    <span class="dsa-value" id="queueTwoWheelers">0/0</span>
+                                </div>
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">🚚 Trucks (VIP/Regular):</span>
+                                    <span class="dsa-value" id="queueTrucks">0/0</span>
+                                </div>
+                            </div>
+                            <div class="dsa-recent-ops" id="queueRecentOps">
+                                <div class="ops-title">Queue Status:</div>
+                                <div id="queueStatus" class="queue-status-msg">All slots available - No waiting vehicles</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Graph Card -->
+                        <div class="dsa-card">
+                            <div class="dsa-card-icon graph-icon">
+                                <i class="fas fa-network-wired"></i>
+                            </div>
+                            <h3>Graph (Slot Connections)</h3>
+                            <p class="dsa-description">Adjacency list maps neighboring slots in parking layout</p>
+                            <div class="dsa-stats">
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">Total Parking Slots:</span>
+                                    <span class="dsa-value" id="graphVertices">0</span>
+                                </div>
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">Slot Connections:</span>
+                                    <span class="dsa-value" id="graphEdges">0</span>
+                                </div>
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">Lanes Mapped:</span>
+                                    <span class="dsa-value" id="graphLanes">0</span>
+                                </div>
+                            </div>
+                            <div class="dsa-recent-ops" id="graphRecentOps">
+                                <div class="ops-title">Layout Structure:</div>
+                                <!-- Will be populated by JS -->
+                            </div>
+                        </div>
+                        
+                        <!-- Stack Card -->
+                        <div class="dsa-card">
+                            <div class="dsa-card-icon stack-icon">
+                                <i class="fas fa-bars"></i>
+                            </div>
+                            <h3>Stack (Token History)</h3>
+                            <p class="dsa-description">LIFO structure for managing booking records</p>
+                            <div class="dsa-stats">
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">Total Records:</span>
+                                    <span class="dsa-value" id="stackSize">0</span>
+                                </div>
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">Recent Entry:</span>
+                                    <span class="dsa-value" id="stackTop">-</span>
+                                </div>
+                                <div class="dsa-stat-item">
+                                    <span class="dsa-label">Time Complexity:</span>
+                                    <span class="dsa-value">O(1)</span>
+                                </div>
+                            </div>
+                            <div class="dsa-operations">
+                                <span class="operation-badge">Push</span>
+                                <span class="operation-badge">Pop</span>
+                                <span class="operation-badge">Peek</span>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -138,8 +138,24 @@ export function primMST(graph, startNode, edgeWeightFn = (r) => r.distanceKm) {
     isConnected,
     mstVertices: [...inMST],
     unreachedVertices,
-    mstEdges: mstEdges.map((e) => ({ from: e.from, to: e.to, weight: e.weight })),
-    excludedEdges: excludedEdges.map((e) => ({ from: e.from, to: e.to, weight: e.weight })),
+    mstEdges: mstEdges.map((e) => ({
+      from: e.from,
+      to: e.to,
+      weight: e.weight,
+      distanceKm: e.road?.distanceKm ?? e.weight,
+      travelTimeMin: e.road?.travelTimeMin ?? (e.weight * 1.5),
+      costRupees: e.road?.costRupees ?? e.weight,
+      road: e.road
+    })),
+    excludedEdges: excludedEdges.map((e) => ({
+      from: e.from,
+      to: e.to,
+      weight: e.weight,
+      distanceKm: e.road?.distanceKm ?? e.weight,
+      travelTimeMin: e.road?.travelTimeMin ?? (e.weight * 1.5),
+      costRupees: e.road?.costRupees ?? e.weight,
+      road: e.road
+    })),
     selectedEdgesCount: mstEdges.length,
     excludedEdgesCount: excludedEdges.length,
     totalTreeWeight: runningWeight,

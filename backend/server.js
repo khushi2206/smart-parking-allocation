@@ -365,13 +365,15 @@ app.post('/api/optimize', (req, res) => {
 
     // Filter pending orders
     const pendingOrders = state.orders.filter((o) => o.status === 'Pending');
+    const orderingMode = req.body?.orderingMode || 'addition';
 
     const result = optimizeDeliveries({
       startWarehouse,
       orders: pendingOrders,
       graph: g,
       objective: metric,
-      returnToWarehouse
+      returnToWarehouse,
+      orderingMode
     });
 
     state.lastOptimizationRun = result;

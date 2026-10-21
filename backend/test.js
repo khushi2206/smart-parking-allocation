@@ -119,14 +119,39 @@ test('Delivery route optimizer on sample data prioritizes Urgent then shortest p
     orders: state.orders,
     graph: g,
     objective: 'distance',
-    returnToWarehouse: true
+    returnToWarehouse: true,
+    orderingMode: 'priority'
   });
   assert.equal(res.route.length, 6); // 5 delivery stops + 1 return
-  assert.equal(res.route[0].orderId, 'O104'); // Urgent at B (dist 3) vs O101 at C (dist 9)
+  assert.equal(res.route[0].orderId, 'O104'); // Urgent at B
   assert.equal(res.route[1].orderId, 'O101'); // Urgent at C
   assert.equal(res.route[2].orderId, 'O103'); // High at D
   assert.equal(res.route[3].orderId, 'O102'); // Medium at A
   assert.equal(res.route[4].orderId, 'O105'); // Low at E
   assert.equal(res.route[5].status, 'Return'); // Return to W
-  assert.equal(res.summary.totalDistanceKm, 40);
+  assert.equal(res.stage1_mst.totalDistanceKm, 15);
+  assert.equal(res.comparison.originalRoadTotal, 36);
+  assert.equal(res.comparison.mstRoadTotal, 15);
+});
+
+test('Integrated optimizer visits orders in addition order on MST and compares with Original network', () => {
+  const g = buildGraph();
+  const res = optimizeDeliveries({
+    startWarehouse: 'W',
+    orders: state.orders,
+    graph: g,
+    objective: 'distance',
+    returnToWarehouse: true,
+    orderingMode: 'addition'
+  });
+  assert.equal(res.route.length, 6);
+  assert.equal(res.route[0].orderId, 'O101'); // First added
+  assert.equal(res.route[1].orderId, 'O102'); // Second added
+  assert.equal(res.route[2].orderId, 'O103'); // Third added
+  assert.equal(res.route[3].orderId, 'O104'); // Fourth added
+  assert.equal(res.route[4].orderId, 'O105'); // Fifth added
+  assert.equal(res.route[5].status, 'Return');
+  assert.equal(res.comparison.originalDeliveryTravelKm, 51);
+  assert.equal(res.comparison.mstDeliveryTravelKm, 58);
+  assert.equal(res.comparison.travelDiffKm, 7);
 });

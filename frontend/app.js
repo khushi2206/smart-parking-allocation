@@ -91,11 +91,7 @@ function setupNavigation() {
           positions: state.nodePositions
         });
       } else if (targetTab === 'optimizer' && optGraph) {
-        optGraph.setData({
-          locations: state.locations,
-          roads: state.roads,
-          positions: state.nodePositions
-        });
+        updateOptGraphView();
       }
     });
   });
@@ -656,8 +652,10 @@ function setupPrimEvents() {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Tab 4: Delivery Optimization
+// 6. Tab 4: Delivery Optimization (2-Stage Prim's MST + Dijkstra)
 // ---------------------------------------------------------------------------
+
+let optShowMstOnly = true;
 
 function initOptGraph() {
   const container = document.getElementById('opt-graph-container');
@@ -673,13 +671,7 @@ function initOptGraph() {
 
 function renderOptimizerTabControls() {
   initOptGraph();
-  if (optGraph) {
-    optGraph.setData({
-      locations: state.locations,
-      roads: state.roads,
-      positions: state.nodePositions
-    });
-  }
+  updateOptGraphView();
 
   const whSel = document.getElementById('sel-opt-warehouse');
   if (whSel) {
@@ -696,14 +688,14 @@ function renderOptimizerTabControls() {
 }
 
 async function runDeliveryOptimization() {
-  const startWarehouse = document.getElementById('sel-opt-warehouse').value || 'W';
-  const metric = document.getElementById('sel-opt-metric').value || 'distance';
-  const returnToWarehouse = document.getElementById('chk-opt-return').checked;
+  const startWarehouse = document.getElementById('sel-opt-warehouse')?.value || 'W';
+  const orderingMode = document.getElementById('sel-opt-ordering')?.value || 'addition';
+  const returnToWarehouse = document.getElementById('chk-opt-return')?.checked ?? true;
 
   try {
     const plan = await api('/optimize', {
       method: 'POST',
-      body: JSON.stringify({ startWarehouse, metric, returnToWarehouse })
+      body: JSON.stringify({ startWarehouse, orderingMode, returnToWarehouse })
     });
 
     deliveryPlan = plan;
@@ -715,14 +707,14 @@ async function runDeliveryOptimization() {
 
 async function recalculateActivePlan() {
   if (!deliveryPlan) return;
-  const startWarehouse = document.getElementById('sel-opt-warehouse').value || 'W';
-  const metric = document.getElementById('sel-opt-metric').value || 'distance';
-  const returnToWarehouse = document.getElementById('chk-opt-return').checked;
+  const startWarehouse = document.getElementById('sel-opt-warehouse')?.value || 'W';
+  const orderingMode = document.getElementById('sel-opt-ordering')?.value || 'addition';
+  const returnToWarehouse = document.getElementById('chk-opt-return')?.checked ?? true;
 
   try {
     const plan = await api('/optimize', {
       method: 'POST',
-      body: JSON.stringify({ startWarehouse, metric, returnToWarehouse })
+      body: JSON.stringify({ startWarehouse, orderingMode, returnToWarehouse })
     });
     deliveryPlan = plan;
     renderDeliveryPlan(plan);
@@ -733,68 +725,197 @@ async function recalculateActivePlan() {
 
 function renderDeliveryPlan(plan) {
   const summary = plan.summary || {};
-  document.getElementById('opt-metric-dist').textContent = `${summary.totalDistanceKm || 0} km`;
-  document.getElementById('opt-metric-time').textContent = `${summary.totalTravelTimeMin || 0} min`;
-  document.getElementById('opt-metric-orders').textContent = `${summary.deliveredOrders || 0} / ${summary.totalOrders || 0}`;
-  document.getElementById('opt-plan-status').textContent = `Route planned: ${summary.totalDistanceKm || 0} km`;
+  const stage1 = plan.stage1_mst || {};
+  const stage2 = plan.stage2_paths || [];
+  const comp = plan.comparison || {};
+  const route = plan.route || [];
+
+  // 1. Stage 1 Infrastructure Metrics Strip
+  const elStage1Mst = document.getElementById('stage1-mst-dist');
+  const elStage1Edges = document.getElementById('stage1-mst-edges');
+  const elStage1Orig = document.getElementById('stage1-orig-dist');
+  const elStage1Savings = document.getElementById('stage1-savings');
+
+  if (elStage1Mst) elStage1Mst.textContent = `${stage1.totalDistanceKm ?? comp.mstRoadTotal ?? 0} km`;
+  if (elStage1Edges) elStage1Edges.textContent = `${stage1.selectedCount ?? (stage1.selectedEdges ? stage1.selectedEdges.length : 0)}`;
+  if (elStage1Orig) elStage1Orig.textContent = `${comp.originalRoadTotal ?? 0} km`;
+  if (elStage1Savings) {
+    elStage1Savings.textContent = `${comp.roadSavingsKm ?? 0} km (${comp.roadSavingsPercent ?? 0}%)`;
+  }
+
+  // 2. Stage 2 Dijkstra Shortest Paths Table
+  const stage2Tbody = document.getElementById('stage2-paths-table-body');
+  if (stage2Tbody) {
+    if (stage2.length === 0) {
+      stage2Tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:14px;">No pending orders to calculate paths for.</td></tr>`;
+    } else {
+      stage2Tbody.innerHTML = stage2.map((p) => {
+        const mstPathStr = p.reachableOnMst && p.mstPath && p.mstPath.length > 0
+          ? `<strong style="color:var(--success); font-family:var(--font-mono);">${p.mstPath.join(' ➔ ')}</strong>`
+          : `<span style="color:#dc2626; font-weight:600;">Unreachable on MST</span>`;
+        const mstDistStr = p.reachableOnMst ? `${p.mstDistanceKm} km` : '—';
+
+        const origPathStr = p.reachableOnOriginal && p.originalPath && p.originalPath.length > 0
+          ? `<span style="font-family:var(--font-mono); color:var(--text-muted);">${p.originalPath.join(' ➔ ')}</span>`
+          : `<span style="color:#dc2626;">Unreachable</span>`;
+        const origDistStr = p.reachableOnOriginal ? `${p.originalDistanceKm} km` : '—';
+
+        return `
+          <tr>
+            <td><strong style="font-family:var(--font-mono);">${escapeHtml(p.orderId)}</strong></td>
+            <td>${escapeHtml(p.customer)}</td>
+            <td><span class="badge" style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1;">${escapeHtml(p.destination)}</span></td>
+            <td>${mstPathStr}</td>
+            <td><strong>${mstDistStr}</strong></td>
+            <td>${origPathStr}</td>
+            <td>${origDistStr}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+
+  // 3. Stage 3 Sequential Delivery Tour
+  const optDist = document.getElementById('opt-metric-dist');
+  const optTime = document.getElementById('opt-metric-time');
+  const optOrders = document.getElementById('opt-metric-orders');
+  const optStatus = document.getElementById('opt-plan-status');
+  const stage3Badge = document.getElementById('stage3-badge');
+
+  if (optDist) optDist.textContent = `${summary.totalDistanceKm || 0} km`;
+  if (optTime) optTime.textContent = `${summary.totalTravelTimeMin || 0} min`;
+  if (optOrders) optOrders.textContent = `${summary.deliveredOrders || 0} / ${summary.totalOrders || 0}`;
+  if (optStatus) optStatus.textContent = `Route planned: ${summary.totalDistanceKm || 0} km`;
+  if (stage3Badge) stage3Badge.textContent = `${route.length} stops planned`;
 
   const tbody = document.getElementById('opt-route-table-body');
-  if (!tbody) return;
+  if (tbody) {
+    if (route.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:16px;">All orders are delivered! No pending deliveries.</td></tr>`;
+    } else {
+      tbody.innerHTML = route.map((stop, idx) => {
+        const isReturn = stop.status === 'Return';
+        const isUnreachable = stop.status === 'Unreachable';
+        const orderId = isReturn ? 'RETURN' : (stop.orderId || '-');
+        const customer = isReturn ? 'Return to Warehouse' : (stop.customer || '-');
+        const dest = stop.destination || stop.customerLocation || stop.location || '-';
+        const pathStr = stop.path && Array.isArray(stop.path.path) && stop.path.path.length > 0
+          ? stop.path.path.join(' ➔ ')
+          : (isUnreachable ? 'No Path (Unreachable)' : '—');
 
-  const route = plan.route || [];
-  if (route.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:16px;">All orders are delivered! No pending deliveries.</td></tr>`;
-  } else {
-    tbody.innerHTML = route.map((stop, idx) => {
-      const isReturn = stop.status === 'Return';
-      const orderId = isReturn ? 'RETURN' : (stop.orderId || '-');
-      const customer = isReturn ? 'Return to Warehouse' : (stop.customer || '-');
-      const dest = stop.destination || stop.customerLocation || stop.location || '-';
-      const priority = isReturn ? '-' : (stop.priority || 'Medium');
-      const priorityClass = isReturn ? '' : `badge-${priority.toLowerCase()}`;
-
-      return `
-        <tr style="${isReturn ? 'background:#f8fafc; font-style:italic;' : ''}">
-          <td><strong>#${idx + 1}</strong></td>
-          <td><strong style="font-family:var(--font-mono);">${escapeHtml(orderId)}</strong></td>
-          <td>${escapeHtml(customer)}</td>
-          <td><span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">${escapeHtml(dest)}</span></td>
-          <td>${isReturn ? '-' : `<span class="badge ${priorityClass}">${escapeHtml(priority)}</span>`}</td>
-          <td>${stop.legDistanceKm || 0} km</td>
-          <td><strong>${stop.cumulativeDistanceKm || 0} km</strong></td>
-          <td style="text-align:right;">
-            ${!isReturn ? `<button class="btn btn-outline btn-sm btn-plan-deliver" data-id="${escapeHtml(stop.orderId)}" style="color:var(--success); border-color:#bbf7d0;">Mark Delivered</button>` : `<span style="font-size:0.75rem; color:var(--text-muted);">End of Tour</span>`}
-          </td>
-        </tr>
-      `;
-    }).join('');
+        return `
+          <tr style="${isReturn ? 'background:#f8fafc; font-style:italic;' : (isUnreachable ? 'background:#fef2f2;' : '')}">
+            <td><strong>#${idx + 1}</strong></td>
+            <td><strong style="font-family:var(--font-mono);">${escapeHtml(orderId)}</strong></td>
+            <td>${escapeHtml(customer)}</td>
+            <td><span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">${escapeHtml(dest)}</span></td>
+            <td><span style="font-family:var(--font-mono); font-size:0.85rem;">${escapeHtml(pathStr)}</span></td>
+            <td>${stop.legDistanceKm || 0} km</td>
+            <td><strong>${stop.cumulativeDistanceKm || 0} km</strong></td>
+            <td style="text-align:right;">
+              ${(!isReturn && !isUnreachable) ? `<button class="btn btn-outline btn-sm btn-plan-deliver" data-id="${escapeHtml(stop.orderId)}" style="color:var(--success); border-color:#bbf7d0;">Mark Delivered</button>` : `<span style="font-size:0.75rem; color:var(--text-muted);">${isReturn ? 'End of Tour' : 'Unreachable'}</span>`}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
   }
 
-  // Highlight on Opt Graph View
-  if (optGraph) {
-    const fullPath = [];
-    route.forEach((s) => {
-      if (s.path && Array.isArray(s.path.path)) {
-        s.path.path.forEach((node, i) => {
-          if (fullPath.length === 0 || fullPath[fullPath.length - 1] !== node) {
-            fullPath.push(node);
-          }
-        });
-      }
-    });
+  // 4. Stage 4 Network Comparison Table
+  const compOrigInfra = document.getElementById('comp-orig-infra');
+  const compMstInfra = document.getElementById('comp-mst-infra');
+  const compInfraDiff = document.getElementById('comp-infra-diff');
+  const compOrigTravel = document.getElementById('comp-orig-travel');
+  const compMstTravel = document.getElementById('comp-mst-travel');
+  const compTravelDiff = document.getElementById('comp-travel-diff');
 
-    optGraph.setData({
-      locations: state.locations,
-      roads: state.roads,
-      positions: state.nodePositions,
-      highlightedPath: fullPath,
-      routeStops: route.filter((r) => r.status !== 'Return')
-    });
+  if (compOrigInfra) compOrigInfra.textContent = `${comp.originalRoadTotal ?? 0} km`;
+  if (compMstInfra) compMstInfra.textContent = `${comp.mstRoadTotal ?? 0} km`;
+  if (compInfraDiff) {
+    compInfraDiff.innerHTML = `<strong style="color:var(--success);">Saved ${comp.roadSavingsKm ?? 0} km (-${comp.roadSavingsPercent ?? 0}%)</strong> infrastructure road reduction`;
   }
+  if (compOrigTravel) compOrigTravel.textContent = `${comp.originalDeliveryTravelKm ?? 0} km`;
+  if (compMstTravel) compMstTravel.textContent = `${comp.mstDeliveryTravelKm ?? 0} km`;
+  if (compTravelDiff) {
+    const diff = comp.travelDiffKm ?? 0;
+    const diffPct = comp.travelDiffPercent ?? 0;
+    if (diff > 0) {
+      compTravelDiff.innerHTML = `<span style="color:#b45309; font-weight:600;">+${diff} km (+${diffPct}%) longer travel on MST</span> (due to excluded shortcuts/cycles)`;
+    } else if (diff < 0) {
+      compTravelDiff.innerHTML = `<span style="color:var(--success); font-weight:600;">${diff} km (${diffPct}%)</span>`;
+    } else {
+      compTravelDiff.innerHTML = `<span style="color:var(--text-muted); font-weight:600;">Equal distance (0 km difference)</span>`;
+    }
+  }
+
+  // 5. Update Graph View
+  updateOptGraphView();
+}
+
+function updateOptGraphView() {
+  if (!optGraph) return;
+
+  const btnToggle = document.getElementById('btn-toggle-opt-network');
+  const title = document.getElementById('opt-graph-title');
+
+  if (btnToggle) {
+    btnToggle.textContent = optShowMstOnly ? 'Show Original Network' : 'Show MST Delivery Network';
+  }
+  if (title) {
+    title.textContent = optShowMstOnly
+      ? 'Stage 1: MST Delivery Network Graph (Prim Tree Edges in Green)'
+      : 'Original Road Network Graph (All Roads)';
+  }
+
+  const activeRoute = deliveryPlan
+    ? (optShowMstOnly ? (deliveryPlan.route || []) : (deliveryPlan.originalRoute || deliveryPlan.route || []))
+    : [];
+
+  const fullPath = [];
+  activeRoute.forEach((s) => {
+    if (s.path && Array.isArray(s.path.path)) {
+      s.path.path.forEach((node) => {
+        if (fullPath.length === 0 || fullPath[fullPath.length - 1] !== node) {
+          fullPath.push(node);
+        }
+      });
+    }
+  });
+
+  const mstEdges = deliveryPlan && deliveryPlan.stage1_mst
+    ? deliveryPlan.stage1_mst.selectedEdges
+    : [];
+
+  optGraph.setData({
+    locations: state.locations,
+    roads: state.roads,
+    positions: state.nodePositions,
+    mstEdges,
+    finalMstOnly: optShowMstOnly,
+    highlightedPath: fullPath,
+    routeStops: activeRoute.filter((r) => r.status !== 'Return')
+  });
 }
 
 function setupOptimizerEvents() {
   document.getElementById('btn-generate-route')?.addEventListener('click', runDeliveryOptimization);
+
+  // Network toggle between MST Network and Original Network
+  document.getElementById('btn-toggle-opt-network')?.addEventListener('click', () => {
+    optShowMstOnly = !optShowMstOnly;
+    updateOptGraphView();
+  });
+
+  // Re-run on ordering mode or return checkbox change if plan exists
+  document.getElementById('sel-opt-ordering')?.addEventListener('change', () => {
+    if (deliveryPlan) runDeliveryOptimization();
+  });
+  document.getElementById('chk-opt-return')?.addEventListener('change', () => {
+    if (deliveryPlan) runDeliveryOptimization();
+  });
+  document.getElementById('sel-opt-warehouse')?.addEventListener('change', () => {
+    if (deliveryPlan) runDeliveryOptimization();
+  });
 
   // Table Delegated Mark Delivered on Optimizer tab
   document.getElementById('opt-route-table-body')?.addEventListener('click', async (e) => {

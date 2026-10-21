@@ -247,7 +247,7 @@
       </div>
     </section>
 
-    <!-- TAB 4: DELIVERY OPTIMIZATION -->
+    <!-- TAB 4: INTEGRATED DELIVERY OPTIMIZATION -->
     <section id="pane-optimizer" class="tab-pane">
       <!-- Delivery Controls Bar -->
       <div class="panel" style="padding:12px 16px;">
@@ -259,10 +259,10 @@
             </div>
 
             <div style="display:flex; align-items:center; gap:6px;">
-              <label for="sel-opt-metric" style="font-weight:600; font-size:0.85rem; color:var(--text-muted);">Metric:</label>
-              <select id="sel-opt-metric" class="form-select" style="width:150px;">
-                <option value="distance" selected>Distance (km)</option>
-                <option value="time">Travel Time (min)</option>
+              <label for="sel-opt-ordering" style="font-weight:600; font-size:0.85rem; color:var(--text-muted);">Sequence:</label>
+              <select id="sel-opt-ordering" class="form-select" style="width:170px;">
+                <option value="addition" selected>Addition Order (FIFO)</option>
+                <option value="priority">Priority Order</option>
               </select>
             </div>
 
@@ -271,57 +271,134 @@
             </label>
           </div>
 
-          <button id="btn-generate-route" class="btn btn-primary">Generate Route</button>
+          <div style="display:flex; gap:8px;">
+            <button id="btn-toggle-opt-network" class="btn btn-outline">Show Original Network</button>
+            <button id="btn-generate-route" class="btn btn-primary">Run 2-Stage Optimization</button>
+          </div>
         </div>
       </div>
 
       <!-- Graph Visualization for Delivery Route -->
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title">Planned Delivery Tour Graph</span>
+          <span class="panel-title" id="opt-graph-title">Stage 1: MST Delivery Network Graph</span>
           <span id="opt-plan-status" style="font-size:0.8rem; font-weight:600; color:var(--primary);">Ready</span>
         </div>
         <div id="opt-graph-container" class="graph-card"></div>
       </div>
 
-      <!-- Route Results Section -->
+      <!-- STAGE 1 & 2 PANEL -->
       <div class="panel">
-        <!-- Summary Metrics Strip -->
+        <div class="panel-header">
+          <span class="panel-title">Stage 1 &amp; 2: MST Network &amp; Warehouse Shortest Paths (Dijkstra on MST)</span>
+        </div>
+
         <div class="summary-strip" style="margin-bottom:14px;">
-          <div class="summary-item">Total Route Distance: <strong id="opt-metric-dist">0 km</strong></div>
-          <div class="summary-item">Total Travel Time: <strong id="opt-metric-time">0 min</strong></div>
-          <div class="summary-item">Orders Planned: <strong id="opt-metric-orders">0 / 0</strong></div>
+          <div class="summary-item">Total MST Infrastructure: <strong id="stage1-mst-dist">15 km</strong></div>
+          <div class="summary-item">MST Edges Selected: <strong id="stage1-mst-edges">5</strong></div>
+          <div class="summary-item">Original Road Total: <strong id="stage1-orig-dist">36 km</strong></div>
+          <div class="summary-item">Infrastructure Saved: <strong id="stage1-savings" style="color:var(--success);">21 km (58.3%)</strong></div>
         </div>
 
-        <!-- Proposed Delivery Sequence Table -->
-        <div style="margin-bottom:16px;">
-          <div style="font-weight:700; font-size:0.85rem; color:var(--text-main); margin-bottom:8px;">
-            Proposed Delivery Sequence:
-          </div>
-          <div class="table-wrapper">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Stop #</th>
-                  <th>Order ID</th>
-                  <th>Customer</th>
-                  <th>Destination</th>
-                  <th>Priority</th>
-                  <th>Leg Distance</th>
-                  <th>Cumulative</th>
-                  <th style="text-align:right;">Action</th>
-                </tr>
-              </thead>
-              <tbody id="opt-route-table-body">
-                <tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:16px;">Click Generate Route to calculate delivery plan.</td></tr>
-              </tbody>
-            </table>
-          </div>
+        <div style="font-weight:700; font-size:0.85rem; color:var(--text-main); margin-bottom:8px;">
+          Shortest Paths from Warehouse to Each Pending Destination (Dijkstra on MST):
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Destination</th>
+                <th>Shortest Path on MST Network</th>
+                <th>MST Distance</th>
+                <th>Original Path</th>
+                <th>Original Dist</th>
+              </tr>
+            </thead>
+            <tbody id="stage2-paths-table-body">
+              <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:14px;">Click "Run 2-Stage Optimization" to compute paths.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- STAGE 3 PANEL: PLANNED DELIVERY TOUR -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Stage 3: Full Delivery Plan (Consecutive Stops on MST Network)</span>
+          <span id="stage3-badge" style="font-size:0.8rem; color:var(--text-muted);">0 stops planned</span>
         </div>
 
-        <!-- Explanation Note -->
+        <div class="summary-strip" style="margin-bottom:14px;">
+          <div class="summary-item">Total Delivery Travel: <strong id="opt-metric-dist">0 km</strong></div>
+          <div class="summary-item">Estimated Travel Time: <strong id="opt-metric-time">0 min</strong></div>
+          <div class="summary-item">Pending Orders: <strong id="opt-metric-orders">0</strong></div>
+        </div>
+
+        <div class="table-wrapper" style="margin-bottom:14px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Stop #</th>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Destination</th>
+                <th>Path Traversed on MST</th>
+                <th>Leg Distance</th>
+                <th>Cumulative</th>
+                <th style="text-align:right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="opt-route-table-body">
+              <tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:16px;">Click "Run 2-Stage Optimization" to calculate delivery tour.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 4: COMPARISON BETWEEN BOTH NETWORKS -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Network Comparison: Original Road Network vs. Prim's MST Network</span>
+        </div>
+
+        <div class="table-wrapper" style="margin-bottom:14px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Comparison Dimension</th>
+                <th>Original Road Network (Mesh)</th>
+                <th>Prim's MST Network (Tree)</th>
+                <th>Difference / Trade-off Analysis</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-table-body">
+              <tr>
+                <td><strong>Total Road Infrastructure</strong></td>
+                <td id="comp-orig-infra">36 km</td>
+                <td id="comp-mst-infra">15 km</td>
+                <td id="comp-infra-diff" style="color:var(--success); font-weight:600;">Saved 21 km (-58.3%)</td>
+              </tr>
+              <tr>
+                <td><strong>Delivery Travel Distance</strong></td>
+                <td id="comp-orig-travel">51 km</td>
+                <td id="comp-mst-travel">58 km</td>
+                <td id="comp-travel-diff" style="color:var(--danger); font-weight:600;">+7 km (+13.7% longer on MST)</td>
+              </tr>
+              <tr>
+                <td><strong>Network Graph Structure</strong></td>
+                <td>Cyclic Graph ($V=6, E=9$) with shortcuts</td>
+                <td>Acyclic Tree ($V=6, E=5$) with zero cycles</td>
+                <td>MST eliminates redundant road maintenance</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Educational Note -->
         <div class="info-note">
-          <strong>Algorithmic Explanation:</strong> The route sequence is computed using a priority-aware greedy heuristic (Urgent &gt; High &gt; Medium &gt; Low) with Dijkstra's algorithm for shortest road paths. As multi-stop vehicle tour planning (TSP/VRP) is NP-hard, this heuristic greedily selects the highest-priority closest destination at each stop. <em>Note: The route distance sums actual road legs traveled and is distinct from Prim's MST total.</em>
+          <strong>DAA Algorithmic Analysis:</strong> Prim's Algorithm minimizes the <em>total weight of the connecting road network</em>, creating a tree that connects all locations with minimal infrastructure cost. However, because cycle edges and shortcut roads are excluded from the spanning tree, the <em>actual delivery distance travelled by a vehicle along tree branches is typically longer</em> than on the original mesh network. The MST minimizes infrastructure construction/maintenance weight, while Dijkstra finds the shortest paths on whichever network is used.
         </div>
       </div>
     </section>

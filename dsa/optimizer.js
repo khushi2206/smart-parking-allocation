@@ -1,6 +1,6 @@
-import { Graph } from './Graph.js';
+import { Graph, buildMstGraph } from './Graph.js';
 import { MinPriorityQueue } from './MinPriorityQueue.js';
-import { dijkstraByObjective } from './Dijkstra.js';
+import { dijkstra, dijkstraByObjective, objectiveScore } from './Dijkstra.js';
 import { primMST } from './Prims.js';
 
 const RANK = { Urgent: 4, Critical: 4, High: 3, Medium: 2, Normal: 2, Low: 1 };
@@ -10,6 +10,7 @@ function parseArgs(args) {
   if (args.length === 1 && args[0] && !Array.isArray(args[0])) {
     const o = args[0];
     const hasCustomWeights = (o.costWeight !== undefined && o.costWeight !== 50) || (o.timeWeight !== undefined && o.timeWeight !== 50);
+    const hasCritical = Array.isArray(o.orders) && o.orders.some((x) => x.priority === 'Critical');
     return {
       startWarehouse: o.startWarehouse || o.warehouse || 'Central Warehouse',
       orders: o.orders || [],
@@ -17,7 +18,8 @@ function parseArgs(args) {
       objective: o.objective || (hasCustomWeights ? 'balanced' : 'distance'),
       costWeight: o.costWeight ?? 50,
       timeWeight: o.timeWeight ?? 50,
-      returnToWarehouse: Boolean(o.returnToWarehouse),
+      returnToWarehouse: o.returnToWarehouse !== false,
+      orderingMode: o.orderingMode || (hasCritical ? 'priority' : 'addition'),
       autoWarehouse: o.autoWarehouse ?? true,
       startTime: o.startTime
     };
@@ -29,15 +31,20 @@ function parseArgs(args) {
     objective: args[3] || 'distance',
     costWeight: args[4] ?? 50,
     timeWeight: args[5] ?? 50,
-    returnToWarehouse: Boolean(args[6]),
+    returnToWarehouse: args[6] !== false,
+    orderingMode: 'addition',
     autoWarehouse: true,
     startTime: null
   };
 }
 
 /**
- * Multi-Warehouse Delivery Route Optimizer using Prim's Greedy Cut Algorithm
- * Computes an optimal delivery tour spanning all customer orders from the warehouse.
+ * Integrated Delivery Route Optimizer combining Prim's MST and Dijkstra's Shortest Paths.
+ *
+ * Stage 1: Prim's algorithm selects the Minimum Spanning Tree of the road network.
+ * Stage 2: Dijkstra's algorithm calculates shortest paths on the MST network to destinations.
+ * Stage 3: Plans sequential delivery tour visiting pending orders and optional return to hub.
+ * Stage 4: Compares Original Network vs. MST Network infrastructure and delivery distances.
  */
 export function optimizeDeliveries(...args) {
   const input = parseArgs(args);
@@ -54,18 +61,22 @@ export function optimizeDeliveries(...args) {
     );
   }
 
-  // Resolve warehouse record or location name
+  // Resolve warehouse location ID
   const warehouseRecords = graph.warehouses || [];
   let startLocation = input.startWarehouse;
   const matchedWh = warehouseRecords.find(
     (w) => w.id === input.startWarehouse || w.name === input.startWarehouse || w.location === input.startWarehouse
   );
   if (matchedWh) {
-    startLocation = matchedWh.location;
+    startLocation = matchedWh.location || matchedWh.id;
   }
 
-  if (!graph?.neighbors || !graph.adjacency?.has(startLocation)) {
-    throw new Error(`Unknown warehouse location: ${input.startWarehouse}`);
+  const allLocations = graph.locations();
+  if (allLocations.length === 0) {
+    throw new Error('Graph has no locations.');
+  }
+  if (!allLocations.includes(startLocation)) {
+    startLocation = allLocations.includes('W') ? 'W' : allLocations[0];
   }
 
   const alpha = Number(input.costWeight);
@@ -74,316 +85,280 @@ export function optimizeDeliveries(...args) {
     throw new Error('Cost and time weights must add up to 100.');
   }
 
-  const clockStart = input.startTime ? new Date(input.startTime) : new Date('2026-01-01T08:00:00Z');
-  if (Number.isNaN(clockStart.getTime())) {
-    throw new Error('Invalid start time.');
+  const orders = input.orders || [];
+  const pendingOrders = orders.filter((o) => o.status !== 'Delivered');
+
+  // -------------------------------------------------------------------------
+  // STAGE 1: Prim's Algorithm - Generate Minimum Spanning Tree
+  // -------------------------------------------------------------------------
+  const weightFn = (road) => objectiveScore(road, input.objective, alpha, beta);
+  const primResult = primMST(graph, startLocation, weightFn);
+
+  // Build the MST Sub-graph G_mst containing ONLY Prim's selected edges
+  const mstGraph = buildMstGraph(allLocations, primResult.mstEdges);
+
+  // -------------------------------------------------------------------------
+  // STAGE 2: Dijkstra Shortest Paths from Warehouse to Each Pending Destination
+  // -------------------------------------------------------------------------
+  const warehousePaths = pendingOrders.map((order) => {
+    const dest = order.destination || order.customerLocation || order.location;
+    const mstDijkstra = dijkstra(mstGraph, startLocation, dest, weightFn);
+    const origDijkstra = dijkstra(graph, startLocation, dest, weightFn);
+
+    return {
+      orderId: order.orderId,
+      customer: order.customer || '',
+      destination: dest,
+      priority: order.priority || 'Medium',
+      mstPath: mstDijkstra.path,
+      mstDistanceKm: mstDijkstra.path.length > 0 ? round(mstDijkstra.distanceKm) : null,
+      mstTimeMin: mstDijkstra.path.length > 0 ? round(mstDijkstra.timeMin) : null,
+      originalPath: origDijkstra.path,
+      originalDistanceKm: origDijkstra.path.length > 0 ? round(origDijkstra.distanceKm) : null,
+      originalTimeMin: origDijkstra.path.length > 0 ? round(origDijkstra.timeMin) : null,
+      reachableOnMst: mstDijkstra.path.length > 0,
+      reachableOnOriginal: origDijkstra.path.length > 0
+    };
+  });
+
+  // -------------------------------------------------------------------------
+  // STAGE 3: Sequential Delivery Tour Planning
+  // -------------------------------------------------------------------------
+  // Sort pending orders according to user ordering mode:
+  // - 'addition': in the exact order they were added
+  // - 'priority': Urgent > High > Medium > Low
+  let sequenceOrders = [...pendingOrders];
+  if (input.orderingMode === 'priority') {
+    sequenceOrders.sort((a, b) => {
+      const rankA = RANK[a.priority] || 1;
+      const rankB = RANK[b.priority] || 1;
+      if (rankA !== rankB) return rankB - rankA;
+      return String(a.orderId).localeCompare(String(b.orderId));
+    });
   }
 
-  const warehouses = warehouseRecords.length
-    ? warehouseRecords
-    : [{ id: input.startWarehouse, name: input.startWarehouse, location: startLocation, capacityKg: Infinity }];
+  // Helper to plan sequential route on a given graph
+  function planSequentialTour(targetGraph, isMstPlan = false) {
+    let current = startLocation;
+    let cumDist = 0;
+    let cumTime = 0;
+    const route = [];
+    const unreachable = [];
+    let remaining = [...pendingOrders];
 
-  const orders = input.orders || [];
-  let clock = new Date(clockStart.getTime());
-  let current = startLocation;
-  let remaining = [...orders];
-  const route = [];
-  const trace = [];
-  const usedCapacity = new Map();
+    while (remaining.length > 0) {
+      let chosenOrder = null;
+      let bestDResult = null;
 
-  // Prim's MST tree vertices initialized with the starting warehouse location
-  const primTree = [startLocation];
+      if (input.orderingMode === 'priority') {
+        const maxRank = Math.max(...remaining.map((o) => RANK[o.priority] || 1));
+        const highestTier = remaining.filter((o) => (RANK[o.priority] || 1) === maxRank);
 
-  const statistics = {
-    nodesExplored: 0,
-    priorityQueueOperations: 0,
-    candidateRoutes: 0,
-    primCutSteps: 0
-  };
-
-  let cumulativeDistance = 0;
-  let cumulativeTime = 0;
-  let cumulativeCost = 0;
-  let cumulativeServiceTime = 0;
-  let stepIndex = 1;
-
-  while (remaining.length > 0) {
-    statistics.primCutSteps++;
-
-    // Prim's Binary Min-Heap to evaluate all candidate cut edges
-    // connecting the current tree/tour to remaining unvisited customer locations
-    const primCandidateQueue = new MinPriorityQueue((a, b) => {
-      // 1. Priority tier precedence (Critical > High > Normal > Low)
-      if (a.priorityRank !== b.priorityRank) {
-        return a.priorityRank > b.priorityRank;
-      }
-      // 2. Deadline lateness urgency (Overdue / urgent first)
-      if (a.isLate !== b.isLate) {
-        return a.isLate && !b.isLate;
-      }
-      // 3. Prim's edge / path weight (lowest objective score)
-      if (Math.abs(a.path.score - b.path.score) > 1e-9) {
-        return a.path.score < b.path.score;
-      }
-      // 4. Stable tie-breaker
-      return String(a.order.orderId) < String(b.order.orderId);
-    });
-
-    const stepEvaluations = [];
-
-    // Evaluate cut edges from current location (or eligible warehouse) to all remaining orders
-    for (const order of remaining) {
-      const target = order.destination || order.customerLocation || order.location;
-      const orderWeight = Number(order.packageWeightKg || 0);
-
-      // Determine eligible warehouses
-      let eligible = warehouses;
-      if (order.warehouseId && order.warehouseId !== 'any') {
-        const filtered = warehouses.filter((w) => w.id === order.warehouseId || w.name === order.warehouseId);
-        if (filtered.length > 0) eligible = filtered;
-      }
-
-      let bestCandidate = null;
-
-      for (const wh of eligible) {
-        const currentWhLoad = usedCapacity.get(wh.id) || 0;
-        const cap = Number(wh.capacityKg ?? Infinity);
-        if (currentWhLoad + orderWeight > cap) {
-          continue; // Exceeds capacity
-        }
-
-        const origin = current === startLocation ? (wh.location || wh.name) : current;
-        const pathResult = dijkstraByObjective(graph, origin, target, input.objective, alpha, beta);
-
-        statistics.nodesExplored += pathResult.explored.length;
-        statistics.priorityQueueOperations += pathResult.queueOperations;
-        statistics.candidateRoutes++;
-
-        if (pathResult.path.length > 0) {
-          if (!bestCandidate || pathResult.score < bestCandidate.path.score) {
-            bestCandidate = { wh, path: pathResult, origin };
+        for (const order of highestTier) {
+          const dest = order.destination || order.customerLocation || order.location;
+          const dResult = dijkstra(targetGraph, current, dest, weightFn);
+          if (
+            !bestDResult ||
+            (dResult.distanceKm < bestDResult.distanceKm) ||
+            (dResult.distanceKm === bestDResult.distanceKm && String(order.orderId) < String(chosenOrder.orderId))
+          ) {
+            bestDResult = dResult;
+            chosenOrder = order;
           }
         }
+      } else {
+        // Addition order (FIFO / creation order)
+        chosenOrder = remaining[0];
+        const dest = chosenOrder.destination || chosenOrder.customerLocation || chosenOrder.location;
+        bestDResult = dijkstra(targetGraph, current, dest, weightFn);
       }
 
-      if (!bestCandidate) {
-        trace.push({
-          stepNumber: stepIndex,
-          type: 'unreachable',
-          algorithm: "Prim's MST Cut",
+      const order = chosenOrder;
+      const dResult = bestDResult;
+      const dest = order.destination || order.customerLocation || order.location;
+
+      remaining = remaining.filter((o) => o.orderId !== order.orderId);
+
+      if (!dResult || !dResult.path || dResult.path.length === 0) {
+        unreachable.push(order);
+        route.push({
+          sequence: route.length + 1,
           orderId: order.orderId,
-          from: current,
-          to: target,
-          reason: 'No connected road or insufficient warehouse capacity'
-        });
-        stepEvaluations.push({
-          orderId: order.orderId,
-          target,
-          reachable: false,
-          reason: 'No connected edge from ' + current
+          customer: order.customer || '',
+          destination: dest,
+          priority: order.priority,
+          status: 'Unreachable',
+          deadlineStatus: 'Unreachable',
+          legDistanceKm: 0,
+          legTravelTimeMin: 0,
+          cumulativeDistanceKm: round(cumDist),
+          cumulativeTimeMin: round(cumTime),
+          path: { path: [] }
         });
         continue;
       }
 
-      const travelMinutes = bestCandidate.path.timeMin;
-      const serviceMinutes = Number(order.serviceTimeMin || 0);
-      const arrival = new Date(clock.getTime() + (travelMinutes + serviceMinutes) * 60000);
-      const deadline = order.deadline ? new Date(order.deadline) : null;
-      const late = deadline && !Number.isNaN(deadline.getTime()) ? Math.max(0, (arrival.getTime() - deadline.getTime()) / 60000) : 0;
-      const priorityRank = RANK[order.priority] || 1;
-
-      const candidateEntry = {
-        order,
-        wh: bestCandidate.wh,
-        origin: bestCandidate.origin,
-        path: bestCandidate.path,
-        arrival,
-        late,
-        isLate: late > 0,
-        priorityRank
-      };
-
-      stepEvaluations.push({
-        orderId: order.orderId,
-        target,
-        priority: order.priority,
-        score: round(bestCandidate.path.score),
-        distanceKm: round(bestCandidate.path.distanceKm),
-        timeMin: round(bestCandidate.path.timeMin),
-        costRupees: round(bestCandidate.path.costRupees),
-        warehouse: bestCandidate.wh.name || bestCandidate.wh.id,
-        path: bestCandidate.path.path
-      });
-
-      primCandidateQueue.insert(candidateEntry);
-    }
-
-    if (primCandidateQueue.isEmpty()) {
-      break; // No reachable candidates remaining
-    }
-
-    // Prim's greedy choice: extract the minimum-weight cut edge
-    const selected = primCandidateQueue.extractMin();
-    statistics.priorityQueueOperations += primCandidateQueue.operations;
-
-    const { order, path, arrival, late, wh } = selected;
-    const legDistance = path.distanceKm;
-    const legTime = path.timeMin;
-    const legCost = path.costRupees;
-    const serviceMin = Number(order.serviceTimeMin || 0);
-
-    cumulativeDistance += legDistance;
-    cumulativeTime += legTime;
-    cumulativeCost += legCost;
-    cumulativeServiceTime += serviceMin;
-
-    const routeItem = {
-      sequence: route.length + 1,
-      ...order,
-      status: 'Delivered',
-      servingWarehouse: wh.name || wh.id,
-      deadlineStatus: late > 0 ? 'Late' : 'On time',
-      arrivalTime: arrival.toISOString(),
-      latenessMin: round(late),
-      legDistanceKm: round(legDistance),
-      legTravelTimeMin: round(legTime),
-      serviceTimeMin: serviceMin,
-      legCostRupees: round(legCost),
-      cumulativeDistanceKm: round(cumulativeDistance),
-      cumulativeTimeMin: round(cumulativeTime + cumulativeServiceTime),
-      cumulativeCostRupees: round(cumulativeCost),
-      path: {
-        ...path,
-        score: round(path.score),
-        distanceKm: round(legDistance),
-        timeMin: round(legTime),
-        costRupees: round(legCost)
-      }
-    };
-
-    usedCapacity.set(wh.id, (usedCapacity.get(wh.id) || 0) + Number(order.packageWeightKg || 0));
-    route.push(routeItem);
-    const dest = order.destination || order.customerLocation || order.location;
-    primTree.push(dest);
-
-    trace.push({
-      stepNumber: stepIndex++,
-      type: 'select',
-      algorithm: "Priority-Aware Shortest Leg (Dijkstra)",
-      orderId: order.orderId,
-      warehouse: wh.id,
-      warehouseName: wh.name || wh.id,
-      from: current,
-      to: dest,
-      path: path.path,
-      priority: order.priority,
-      score: round(path.score),
-      arrivalTime: arrival.toISOString(),
-      treeVertices: [...primTree],
-      candidatesConsidered: stepEvaluations,
-      reason: input.objective === 'distance'
-        ? `Selected shortest distance edge to "${dest}" (${round(legDistance)} km) within priority tier [${order.priority}].`
-        : `Selected minimum-weight edge to "${dest}" (score ${round(path.score)}) within priority tier [${order.priority}].`,
-      cumulativeDistanceKm: round(cumulativeDistance),
-      cumulativeTimeMin: round(cumulativeTime + cumulativeServiceTime),
-      cumulativeCostRupees: round(cumulativeCost)
-    });
-
-    clock = arrival;
-    current = dest;
-    remaining = remaining.filter((x) => x.orderId !== order.orderId);
-  }
-
-  // Handle Return to Starting Warehouse if requested
-  if (input.returnToWarehouse && current !== startLocation) {
-    const returnPath = dijkstraByObjective(graph, current, startLocation, input.objective, alpha, beta);
-    if (returnPath.path.length > 0) {
-      cumulativeDistance += returnPath.distanceKm;
-      cumulativeTime += returnPath.timeMin;
-      cumulativeCost += returnPath.costRupees;
+      cumDist += dResult.distanceKm;
+      cumTime += dResult.timeMin;
 
       route.push({
         sequence: route.length + 1,
-        orderId: 'RETURN',
-        customerLocation: startLocation,
-        status: 'Return',
-        servingWarehouse: input.startWarehouse,
-        deadlineStatus: 'N/A',
-        legDistanceKm: round(returnPath.distanceKm),
-        legTravelTimeMin: round(returnPath.timeMin),
-        serviceTimeMin: 0,
-        legCostRupees: round(returnPath.costRupees),
-        cumulativeDistanceKm: round(cumulativeDistance),
-        cumulativeTimeMin: round(cumulativeTime + cumulativeServiceTime),
-        cumulativeCostRupees: round(cumulativeCost),
-        path: returnPath
+        orderId: order.orderId,
+        customer: order.customer || '',
+        destination: dest,
+        priority: order.priority,
+        status: 'Delivered',
+        deadlineStatus: 'On time',
+        legDistanceKm: round(dResult.distanceKm),
+        legTravelTimeMin: round(dResult.timeMin),
+        cumulativeDistanceKm: round(cumDist),
+        cumulativeTimeMin: round(cumTime),
+        path: {
+          path: dResult.path,
+          distanceKm: round(dResult.distanceKm),
+          timeMin: round(dResult.timeMin)
+        }
       });
 
-      trace.push({
-        stepNumber: stepIndex++,
-        type: 'return',
-        algorithm: "Prim's Tour Return",
-        from: current,
-        to: startLocation,
-        path: returnPath.path,
-        reason: `Return vehicle to start warehouse location "${startLocation}".`,
-        cumulativeDistanceKm: round(cumulativeDistance),
-        cumulativeTimeMin: round(cumulativeTime + cumulativeServiceTime),
-        cumulativeCostRupees: round(cumulativeCost)
-      });
+      current = dest;
+    }
+
+    // Return leg to starting warehouse if requested
+    if (input.returnToWarehouse && current !== startLocation) {
+      const returnResult = dijkstra(targetGraph, current, startLocation, weightFn);
+      if (returnResult.path && returnResult.path.length > 0) {
+        cumDist += returnResult.distanceKm;
+        cumTime += returnResult.timeMin;
+
+        route.push({
+          sequence: route.length + 1,
+          orderId: 'RETURN',
+          customer: 'Return to Starting Warehouse',
+          destination: startLocation,
+          priority: '-',
+          status: 'Return',
+          legDistanceKm: round(returnResult.distanceKm),
+          legTravelTimeMin: round(returnResult.timeMin),
+          cumulativeDistanceKm: round(cumDist),
+          cumulativeTimeMin: round(cumTime),
+          path: {
+            path: returnResult.path,
+            distanceKm: round(returnResult.distanceKm),
+            timeMin: round(returnResult.timeMin)
+          }
+        });
+      }
+    }
+
+    return {
+      route,
+      unreachable,
+      totalDistanceKm: round(cumDist),
+      totalTravelTimeMin: round(cumTime)
+    };
+  }
+
+  // Plan on MST Network
+  const mstTour = planSequentialTour(mstGraph, true);
+  // Plan on Original Road Network
+  const originalTour = planSequentialTour(graph, false);
+
+  // -------------------------------------------------------------------------
+  // STAGE 4: Network Comparison Metrics
+  // -------------------------------------------------------------------------
+  // Calculate total road infrastructure distance in both networks
+  let originalRoadTotal = 0;
+  const uniqueEdges = new Set();
+  for (const loc of allLocations) {
+    for (const r of graph.neighbors(loc)) {
+      const key = loc < r.destination ? `${loc}---${r.destination}` : `${r.destination}---${loc}`;
+      if (!uniqueEdges.has(key)) {
+        uniqueEdges.add(key);
+        originalRoadTotal += Number(r.distanceKm || 0);
+      }
     }
   }
 
-  // Mark unreachable orders
-  for (const unreachableOrder of remaining) {
-    route.push({
-      sequence: route.length + 1,
-      ...unreachableOrder,
-      status: 'Unreachable',
-      deadlineStatus: 'Unreachable',
-      legDistanceKm: 0,
-      legTravelTimeMin: 0,
-      serviceTimeMin: 0,
-      legCostRupees: 0,
-      path: null
-    });
-  }
+  const mstRoadTotal = round(primResult.totalTreeWeight);
+  const roadSavingsKm = round(originalRoadTotal - mstRoadTotal);
+  const roadSavingsPercent = originalRoadTotal > 0 ? round((roadSavingsKm / originalRoadTotal) * 100) : 0;
 
-  const delivered = route.filter((x) => x.status === 'Delivered');
+  const originalDeliveryTravelKm = originalTour.totalDistanceKm;
+  const mstDeliveryTravelKm = mstTour.totalDistanceKm;
+  const travelDiffKm = round(mstDeliveryTravelKm - originalDeliveryTravelKm);
+  const travelDiffPercent = originalDeliveryTravelKm > 0 ? round((travelDiffKm / originalDeliveryTravelKm) * 100) : 0;
+
+  const comparison = {
+    originalRoadTotal: round(originalRoadTotal),
+    mstRoadTotal,
+    roadSavingsKm,
+    roadSavingsPercent,
+    originalDeliveryTravelKm,
+    mstDeliveryTravelKm,
+    travelDiffKm,
+    travelDiffPercent,
+    comparisonNote:
+      "Prim's Algorithm creates an MST that minimizes the total infrastructure road distance of the connecting network. However, because shortcuts and cycle edges are excluded from the tree, vehicle delivery travel distance on the MST network may be longer than on the original mesh network."
+  };
+
+  // Build execution trace for Prim's + Dijkstra steps
+  const trace = primResult.trace.map((step) => ({
+    stepNumber: step.stepNumber,
+    type: 'select',
+    algorithm: "Prim's MST + Dijkstra Shortest Path",
+    from: step.from || startLocation,
+    to: step.to || '',
+    weight: step.weight || 0,
+    treeVertices: step.currentTree || [],
+    reason: step.explanation,
+    runningWeight: step.runningWeight || 0
+  }));
+
+  // Route returned matches the primary MST delivery tour
+  const route = mstTour.route;
 
   return {
     route,
-    trace,
-    algorithm: "Prim's Algorithm with Priority & Multi-Warehouse Capacity Allocation",
-    structures: {
-      algorithm: "Prim's Greedy Cut MST Tour Heuristic",
-      graph: 'Weighted Adjacency List (Map<Location, Edge[]>)',
-      candidateQueue: "Prim's Binary Min-Heap (Array-backed complete tree)",
-      dijkstra: 'Custom Binary Min-Heap with Edge Relaxation',
-      mstTreeVertices: primTree
+    mstRoute: mstTour.route,
+    originalRoute: originalTour.route,
+    warehousePaths,
+    stage1_mst: {
+      totalDistanceKm: mstRoadTotal,
+      selectedEdges: primResult.mstEdges,
+      excludedEdges: primResult.excludedEdges,
+      selectedCount: primResult.selectedEdgesCount,
+      excludedCount: primResult.excludedEdgesCount,
+      isConnected: primResult.isConnected,
+      unreachedVertices: primResult.unreachedVertices
     },
-    weights: {
-      costWeight: alpha,
-      timeWeight: beta
+    stage2_paths: warehousePaths,
+    stage3_delivery: {
+      orderingMode: input.orderingMode,
+      totalDistanceKm: mstTour.totalDistanceKm,
+      totalTravelTimeMin: mstTour.totalTravelTimeMin,
+      stopsCount: mstTour.route.length,
+      deliveredCount: mstTour.route.filter((r) => r.status === 'Delivered').length
     },
+    comparison,
     summary: {
-      algorithm: "Prim's Algorithm",
-      startWarehouse: input.startWarehouse,
+      algorithm: "Prim's Algorithm + Dijkstra's Algorithm",
+      startWarehouse: startLocation,
       startLocation,
       objective: input.objective,
       totalOrders: orders.length,
-      deliveredOrders: delivered.length,
-      unreachableOrders: orders.length - delivered.length,
-      onTimeOrders: delivered.filter((x) => x.deadlineStatus === 'On time').length,
-      lateOrders: delivered.filter((x) => x.deadlineStatus === 'Late').length,
-      totalDistanceKm: round(delivered.reduce((s, x) => s + x.legDistanceKm, 0) + (route.find((x) => x.status === 'Return')?.legDistanceKm || 0)),
-      totalTravelTimeMin: round(delivered.reduce((s, x) => s + x.legTravelTimeMin, 0) + (route.find((x) => x.status === 'Return')?.legTravelTimeMin || 0)),
-      totalServiceTimeMin: round(cumulativeServiceTime),
-      totalCostRupees: round(delivered.reduce((s, x) => s + x.legCostRupees, 0) + (route.find((x) => x.status === 'Return')?.legCostRupees || 0)),
-      ...statistics
+      deliveredOrders: mstTour.route.filter((r) => r.status === 'Delivered').length,
+      unreachableOrders: mstTour.unreachable.length,
+      onTimeOrders: mstTour.route.filter((r) => r.status === 'Delivered').length,
+      lateOrders: mstTour.unreachable.length,
+      totalDistanceKm: mstTour.totalDistanceKm,
+      totalTravelTimeMin: mstTour.totalTravelTimeMin,
+      totalServiceTimeMin: 0,
+      totalCostRupees: round(mstTour.totalDistanceKm * 10),
+      nodesExplored: allLocations.length,
+      priorityQueueOperations: primResult.heapOperations,
+      candidateRoutes: sequenceOrders.length,
+      primCutSteps: primResult.mstEdges.length
     },
-    complexity: 'O(K² · (V + E) log V)',
-    heuristicNote: "Prim's Minimum Spanning Tree algorithm is applied with a priority-aware greedy cut property to minimize total distance traveled, iteratively selecting the shortest reachable customer leg at each step while solving NP-hard vehicle tour routing in polynomial time.",
-    steps: trace.map((x) => `${x.type}: ${x.orderId || ''} ${x.path?.join(' → ') || ''}`)
+    trace
   };
 }

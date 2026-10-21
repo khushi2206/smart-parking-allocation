@@ -161,16 +161,16 @@ export class GraphView {
       let strokeWidth = '2';
       let strokeDash = '';
 
-      if (this.finalMstOnly || isMst) {
+      if (isPath) {
+        strokeColor = '#2563eb'; // Blue for active delivery tour path
+        strokeWidth = '4';
+      } else if (this.finalMstOnly || isMst) {
         strokeColor = '#16a34a'; // Vibrant green for MST tree edges
-        strokeWidth = '3.5';
+        strokeWidth = '3';
       } else if (isCut) {
         strokeColor = '#eab308'; // Amber/yellow for currently considered cut edge
         strokeWidth = '3';
         strokeDash = '4,3';
-      } else if (isPath) {
-        strokeColor = '#2563eb'; // Blue for active delivery tour path
-        strokeWidth = '3.5';
       }
 
       line.setAttribute('stroke', strokeColor);
@@ -197,8 +197,8 @@ export class GraphView {
         bg.setAttribute('width', rectW);
         bg.setAttribute('height', rectH);
         bg.setAttribute('rx', '4');
-        bg.setAttribute('fill', isMst ? '#f0fdf4' : (isPath ? '#eff6ff' : '#ffffff'));
-        bg.setAttribute('stroke', isMst ? '#16a34a' : (isPath ? '#2563eb' : '#cbd5e1'));
+        bg.setAttribute('fill', isPath ? '#eff6ff' : (isMst ? '#f0fdf4' : '#ffffff'));
+        bg.setAttribute('stroke', isPath ? '#2563eb' : (isMst ? '#16a34a' : '#cbd5e1'));
         bg.setAttribute('stroke-width', '1');
 
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -207,7 +207,7 @@ export class GraphView {
         text.setAttribute('text-anchor', 'middle');
         text.setAttribute('font-size', '11');
         text.setAttribute('font-weight', '600');
-        text.setAttribute('fill', isMst ? '#15803d' : (isPath ? '#1e40af' : '#475569'));
+        text.setAttribute('fill', isPath ? '#1e40af' : (isMst ? '#15803d' : '#475569'));
         text.setAttribute('font-family', 'system-ui, -apple-system, sans-serif');
         text.textContent = weightText;
 

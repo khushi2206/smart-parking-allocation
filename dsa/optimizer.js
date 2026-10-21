@@ -9,11 +9,12 @@ const round = (v) => (v == null ? null : Math.round(v * 100) / 100);
 function parseArgs(args) {
   if (args.length === 1 && args[0] && !Array.isArray(args[0])) {
     const o = args[0];
+    const hasCustomWeights = (o.costWeight !== undefined && o.costWeight !== 50) || (o.timeWeight !== undefined && o.timeWeight !== 50);
     return {
       startWarehouse: o.startWarehouse || o.warehouse || 'Central Warehouse',
       orders: o.orders || [],
       graph: o.graph || o.roads,
-      objective: o.objective || 'balanced',
+      objective: o.objective || (hasCustomWeights ? 'balanced' : 'distance'),
       costWeight: o.costWeight ?? 50,
       timeWeight: o.timeWeight ?? 50,
       returnToWarehouse: Boolean(o.returnToWarehouse),
@@ -25,7 +26,7 @@ function parseArgs(args) {
     startWarehouse: args[0],
     orders: args[1] || [],
     graph: args[2],
-    objective: args[3] || 'balanced',
+    objective: args[3] || 'distance',
     costWeight: args[4] ?? 50,
     timeWeight: args[5] ?? 50,
     returnToWarehouse: Boolean(args[6]),
@@ -279,7 +280,9 @@ export function optimizeDeliveries(...args) {
       arrivalTime: arrival.toISOString(),
       treeVertices: [...primTree],
       candidatesConsidered: stepEvaluations,
-      reason: `Prim's greedy cut: Selected minimum-weight edge to "${order.customerLocation || order.location}" (score ${round(path.score)}) within priority tier [${order.priority}].`,
+      reason: input.objective === 'distance'
+        ? `Prim's greedy cut: Selected shortest distance edge to "${order.customerLocation || order.location}" (${round(legDistance)} km) within priority tier [${order.priority}].`
+        : `Prim's greedy cut: Selected minimum-weight edge to "${order.customerLocation || order.location}" (score ${round(path.score)}) within priority tier [${order.priority}].`,
       cumulativeDistanceKm: round(cumulativeDistance),
       cumulativeTimeMin: round(cumulativeTime + cumulativeServiceTime),
       cumulativeCostRupees: round(cumulativeCost)
@@ -379,7 +382,7 @@ export function optimizeDeliveries(...args) {
       ...statistics
     },
     complexity: 'O(K² · (V + E) log V)',
-    heuristicNote: "Prim's Minimum Spanning Tree algorithm is applied with a priority-aware greedy cut property to sequence multi-stop deliveries, guaranteeing optimal connection choices at each step while solving NP-hard vehicle tour routing in polynomial time.",
+    heuristicNote: "Prim's Minimum Spanning Tree algorithm is applied with a priority-aware greedy cut property to minimize total distance traveled, iteratively selecting the shortest reachable customer leg at each step while solving NP-hard vehicle tour routing in polynomial time.",
     steps: trace.map((x) => `${x.type}: ${x.orderId || ''} ${x.path?.join(' → ') || ''}`)
   };
 }

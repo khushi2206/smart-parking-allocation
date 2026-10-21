@@ -84,11 +84,9 @@ function populateOrdersChecklist() {
 
 async function runOptimization() {
   const startWarehouse = document.getElementById('opt-start-wh').value;
-  const objective = document.getElementById('opt-objective').value;
+  const objective = document.getElementById('opt-objective')?.value || 'distance';
   const autoWarehouse = document.getElementById('opt-auto-wh').checked;
   const returnToWarehouse = document.getElementById('opt-return-wh').checked;
-  const costWeight = Number(document.getElementById('cost-weight-slider').value);
-  const timeWeight = Number(document.getElementById('time-weight-slider').value);
 
   const selectedOrderIds = Array.from(document.querySelectorAll('.order-chk:checked')).map((cb) => cb.value);
 
@@ -109,8 +107,6 @@ async function runOptimization() {
         startWarehouse,
         orderIds: selectedOrderIds,
         objective,
-        costWeight,
-        timeWeight,
         autoWarehouse,
         returnToWarehouse,
         markAsPlanned: true
@@ -208,36 +204,6 @@ function renderPlanResults(result) {
 }
 
 function setupEvents() {
-  // Sync Cost & Time weight sliders to always total 100%
-  const costSlider = document.getElementById('cost-weight-slider');
-  const timeSlider = document.getElementById('time-weight-slider');
-  const costVal = document.getElementById('cost-weight-val');
-  const timeVal = document.getElementById('time-weight-val');
-  const objectiveSelect = document.getElementById('opt-objective');
-  const weightsPanel = document.getElementById('opt-weights-panel');
-
-  if (objectiveSelect && weightsPanel) {
-    objectiveSelect.addEventListener('change', () => {
-      weightsPanel.style.display = objectiveSelect.value === 'balanced' ? 'block' : 'none';
-    });
-  }
-
-  if (costSlider && timeSlider) {
-    costSlider.addEventListener('input', () => {
-      const c = Number(costSlider.value);
-      timeSlider.value = 100 - c;
-      costVal.textContent = `${c}%`;
-      timeVal.textContent = `${100 - c}%`;
-    });
-
-    timeSlider.addEventListener('input', () => {
-      const t = Number(timeSlider.value);
-      costSlider.value = 100 - t;
-      timeVal.textContent = `${t}%`;
-      costVal.textContent = `${100 - t}%`;
-    });
-  }
-
   // Select / Deselect All Orders
   document.getElementById('btn-select-all-orders')?.addEventListener('click', () => {
     document.querySelectorAll('.order-chk').forEach((cb) => (cb.checked = true));

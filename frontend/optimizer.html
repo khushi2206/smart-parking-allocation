@@ -31,34 +31,11 @@
             <div class="form-group">
               <label class="form-label" for="opt-objective">Optimization Objective *</label>
               <select id="opt-objective" class="form-select" required>
-                <option value="balanced" selected>Balanced Cost &amp; Time (Normalized)</option>
-                <option value="distance">Minimum Distance (km)</option>
+                <option value="distance" selected>Minimum Distance Traveled (km)</option>
                 <option value="time">Minimum Travel Time (min)</option>
                 <option value="cost">Minimum Monetary Cost (₹)</option>
               </select>
-            </div>
-          </div>
-
-          <!-- Balanced Weight Sliders (Shown when Objective = balanced) -->
-          <div id="opt-weights-panel" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:16px;">
-            <div style="font-weight:700; font-size:0.85rem; color:#0f172a; margin-bottom:8px;">Balanced Optimization Weight Tradeoff (Must Total 100%)</div>
-            <div class="form-row">
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label">
-                  <span>Cost Weight: <strong id="cost-weight-val" style="color:#16a34a;">50%</strong></span>
-                </label>
-                <input type="range" id="cost-weight-slider" min="0" max="100" value="50" style="width:100%; accent-color:#16a34a;">
-              </div>
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label">
-                  <span>Time Weight: <strong id="time-weight-val" style="color:#2563eb;">50%</strong></span>
-                </label>
-                <input type="range" id="time-weight-slider" min="0" max="100" value="50" style="width:100%; accent-color:#2563eb;">
-              </div>
-            </div>
-            <!-- Min-Max Normalization Formula Box -->
-            <div style="margin-top:12px; font-size:0.75rem; color:#475569; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-family:var(--font-mono);">
-              <strong>Normalization Formula:</strong> score = (W_cost &times; (cost - minCost)/(maxCost - minCost) + W_time &times; (time - minTime)/(maxTime - minTime)) / 100
+              <span class="form-help">Vehicle delivery tour is optimized strictly by shortest road distance traveled.</span>
             </div>
           </div>
 

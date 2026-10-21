@@ -188,8 +188,8 @@ export function dijkstra(graph, start, destination, edgeScore) {
   };
 }
 
-export function objectiveScore(road, objective = 'balanced', costWeight = 50, timeWeight = 50) {
-  if (objective === 'distance') return road.distanceKm;
+export function objectiveScore(road, objective = 'distance', costWeight = 50, timeWeight = 50) {
+  if (objective === 'distance' || !objective) return road.distanceKm;
   if (objective === 'time') return road.travelTimeMin;
   if (objective === 'cost') return road.costRupees;
   const alpha = Number(costWeight), beta = Number(timeWeight);
@@ -199,24 +199,12 @@ export function objectiveScore(road, objective = 'balanced', costWeight = 50, ti
   return (road.costRupees * alpha + road.travelTimeMin * beta) / 100;
 }
 
-export function dijkstraByObjective(graph, start, destination, objective = 'balanced', costWeight = 50, timeWeight = 50) {
-  const allRoads = graph.locations().flatMap((location) => graph.neighbors(location));
-  const costValues = allRoads.map((road) => road.costRupees);
-  const timeValues = allRoads.map((road) => road.travelTimeMin);
-  const costBounds = costValues.length ? [Math.min(...costValues), Math.max(...costValues)] : [0, 0];
-  const timeBounds = timeValues.length ? [Math.min(...timeValues), Math.max(...timeValues)] : [0, 0];
-  const normalize = (value, [min, max]) => max === min ? 0 : (value - min) / (max - min);
-
-  const score = objective === 'balanced'
-    ? (road) => (Number(costWeight) / 100) * normalize(road.costRupees, costBounds)
-      + (Number(timeWeight) / 100) * normalize(road.travelTimeMin, timeBounds)
-    : (road) => objectiveScore(road, objective, costWeight, timeWeight);
-
+export function dijkstraByObjective(graph, start, destination, objective = 'distance', costWeight = 50, timeWeight = 50) {
+  const score = (road) => objectiveScore(road, objective, costWeight, timeWeight);
   const result = dijkstra(graph, start, destination, score);
   return {
     ...result,
     objective,
-    normalization: { costBounds, timeBounds },
     detailedState: {
       start,
       destination,

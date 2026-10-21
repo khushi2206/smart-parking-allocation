@@ -552,7 +552,7 @@ app.post('/api/optimize', (req, res) => {
     }
 
     const g = buildGraph();
-    const objective = req.body?.objective || 'balanced';
+    const objective = req.body?.objective || 'distance';
     const costWeight = bodyNumber(req.body?.costWeight, 50);
     const timeWeight = bodyNumber(req.body?.timeWeight, 50);
     const returnToWarehouse = Boolean(req.body?.returnToWarehouse);

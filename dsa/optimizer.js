@@ -3,7 +3,7 @@ import { MinPriorityQueue } from './MinPriorityQueue.js';
 import { dijkstraByObjective } from './Dijkstra.js';
 import { primMST } from './Prims.js';
 
-const RANK = { Critical: 4, High: 3, Normal: 2, Low: 1 };
+const RANK = { Urgent: 4, Critical: 4, High: 3, Medium: 2, Normal: 2, Low: 1 };
 const round = (v) => (v == null ? null : Math.round(v * 100) / 100);
 
 function parseArgs(args) {
@@ -133,7 +133,7 @@ export function optimizeDeliveries(...args) {
 
     // Evaluate cut edges from current location (or eligible warehouse) to all remaining orders
     for (const order of remaining) {
-      const target = order.customerLocation || order.location;
+      const target = order.destination || order.customerLocation || order.location;
       const orderWeight = Number(order.packageWeightKg || 0);
 
       // Determine eligible warehouses
@@ -263,17 +263,18 @@ export function optimizeDeliveries(...args) {
 
     usedCapacity.set(wh.id, (usedCapacity.get(wh.id) || 0) + Number(order.packageWeightKg || 0));
     route.push(routeItem);
-    primTree.push(order.customerLocation || order.location);
+    const dest = order.destination || order.customerLocation || order.location;
+    primTree.push(dest);
 
     trace.push({
       stepNumber: stepIndex++,
       type: 'select',
-      algorithm: "Prim's Algorithm (Greedy Cut)",
+      algorithm: "Priority-Aware Shortest Leg (Dijkstra)",
       orderId: order.orderId,
       warehouse: wh.id,
       warehouseName: wh.name || wh.id,
       from: current,
-      to: order.customerLocation || order.location,
+      to: dest,
       path: path.path,
       priority: order.priority,
       score: round(path.score),
@@ -281,15 +282,15 @@ export function optimizeDeliveries(...args) {
       treeVertices: [...primTree],
       candidatesConsidered: stepEvaluations,
       reason: input.objective === 'distance'
-        ? `Prim's greedy cut: Selected shortest distance edge to "${order.customerLocation || order.location}" (${round(legDistance)} km) within priority tier [${order.priority}].`
-        : `Prim's greedy cut: Selected minimum-weight edge to "${order.customerLocation || order.location}" (score ${round(path.score)}) within priority tier [${order.priority}].`,
+        ? `Selected shortest distance edge to "${dest}" (${round(legDistance)} km) within priority tier [${order.priority}].`
+        : `Selected minimum-weight edge to "${dest}" (score ${round(path.score)}) within priority tier [${order.priority}].`,
       cumulativeDistanceKm: round(cumulativeDistance),
       cumulativeTimeMin: round(cumulativeTime + cumulativeServiceTime),
       cumulativeCostRupees: round(cumulativeCost)
     });
 
     clock = arrival;
-    current = order.customerLocation || order.location;
+    current = dest;
     remaining = remaining.filter((x) => x.orderId !== order.orderId);
   }
 

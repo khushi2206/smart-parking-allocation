@@ -101,3 +101,32 @@ test('Graph correctly maps bidirectional vs directed adjacency entries', () => {
   assert.equal(g.neighbors('NodeX').length, 2);
   assert.equal(g.neighbors('NodeZ').length, 0); // one-way, no reverse edge
 });
+
+test("Prim's algorithm computes exact MST on sample graph with cycles", async () => {
+  const { primMST } = await import('../dsa/Prims.js');
+  const g = buildGraph();
+  const res = primMST(g, 'W');
+  assert.equal(res.isConnected, true);
+  assert.equal(res.mstEdges.length, 5); // V - 1 = 6 - 1 = 5
+  assert.equal(res.excludedEdges.length, 4); // 9 - 5 = 4
+  assert.equal(res.totalTreeWeight, 15);
+});
+
+test('Delivery route optimizer on sample data prioritizes Urgent then shortest path and returns to W', () => {
+  const g = buildGraph();
+  const res = optimizeDeliveries({
+    startWarehouse: 'W',
+    orders: state.orders,
+    graph: g,
+    objective: 'distance',
+    returnToWarehouse: true
+  });
+  assert.equal(res.route.length, 6); // 5 delivery stops + 1 return
+  assert.equal(res.route[0].orderId, 'O104'); // Urgent at B (dist 3) vs O101 at C (dist 9)
+  assert.equal(res.route[1].orderId, 'O101'); // Urgent at C
+  assert.equal(res.route[2].orderId, 'O103'); // High at D
+  assert.equal(res.route[3].orderId, 'O102'); // Medium at A
+  assert.equal(res.route[4].orderId, 'O105'); // Low at E
+  assert.equal(res.route[5].status, 'Return'); // Return to W
+  assert.equal(res.summary.totalDistanceKm, 40);
+});

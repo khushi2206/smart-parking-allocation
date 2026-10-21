@@ -3,214 +3,391 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Overview • RouteWise</title>
+  <title>Delivery Route Optimization</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div id="app-root"></div>
-
-  <!-- Page Template Content -->
-  <template id="page-content">
-    <!-- Summary Stats Grid -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-header">
-          <span>Warehouses</span>
-          <div class="stat-icon" style="background:#eff6ff; color:#2563eb;">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-value" id="stat-warehouses">0</div>
-        <div class="stat-desc">Supply hubs</div>
+  <!-- Header with Top Navigation Bar -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-title">
+        <span>Delivery Route Optimization</span>
+        <span class="brand-badge">DSA</span>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-header">
-          <span>Locations</span>
-          <div class="stat-icon" style="background:#f1f5f9; color:#0f172a;">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-value" id="stat-locations">0</div>
-        <div class="stat-desc">Network nodes (V)</div>
-      </div>
+      <nav class="nav-tabs" role="tablist">
+        <button class="nav-tab-btn active" data-tab="orders" id="tab-btn-orders">1. Orders</button>
+        <button class="nav-tab-btn" data-tab="network" id="tab-btn-network">2. Road Network</button>
+        <button class="nav-tab-btn" data-tab="prims" id="tab-btn-prims">3. Prim's Algorithm</button>
+        <button class="nav-tab-btn" data-tab="optimizer" id="tab-btn-optimizer">4. Delivery Optimization</button>
+      </nav>
 
-      <div class="stat-card">
-        <div class="stat-header">
-          <span>Roads</span>
-          <div class="stat-icon" style="background:#f1f5f9; color:#475569;">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-value" id="stat-roads">0</div>
-        <div class="stat-desc">Weighted edges (E)</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-header">
-          <span>Pending Orders</span>
-          <div class="stat-icon" style="background:#fffbeb; color:#d97706;">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-value" id="stat-pending">0</div>
-        <div class="stat-desc">Awaiting routing</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-header">
-          <span>Delivered</span>
-          <div class="stat-icon" style="background:#f0fdf4; color:#16a34a;">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-value" id="stat-delivered">0</div>
-        <div class="stat-desc">Completed orders</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-header">
-          <span>Unreachable</span>
-          <div class="stat-icon" style="background:#fef2f2; color:#dc2626;">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-value" id="stat-unreachable">0</div>
-        <div class="stat-desc">Disconnected nodes</div>
+      <div>
+        <button id="btn-reset-sample" class="btn btn-outline btn-sm" title="Restore initial sample data">
+          Reset Sample Data
+        </button>
       </div>
     </div>
+  </header>
 
-    <!-- Quick Actions Bar -->
-    <div class="panel" style="background: linear-gradient(to right, #ffffff, #f8fafc);">
-      <div class="panel-body" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
-        <div>
-          <div style="font-weight:700; font-size:1.05rem; color:#0f172a;">Quick Actions</div>
-          <div style="font-size:0.8rem; color:#64748b;">Build your network graph or run multi-warehouse optimization</div>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <a href="/locations.html" class="btn btn-secondary btn-sm">+ Add Location</a>
-          <a href="/warehouses.html" class="btn btn-secondary btn-sm">+ Add Warehouse</a>
-          <a href="/roads.html" class="btn btn-secondary btn-sm">+ Add Road</a>
-          <a href="/orders.html" class="btn btn-secondary btn-sm">+ Add Order</a>
-          <a href="/optimizer.html" class="btn btn-primary btn-sm">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
-            <span>Optimize Delivery Routes</span>
-          </a>
-        </div>
-      </div>
-    </div>
+  <!-- Main Container -->
+  <main class="main-container">
 
-    <!-- Empty State Guide (Shown only when 0 locations) -->
-    <div class="panel" id="overview-empty-panel" style="display:none;">
-      <div class="empty-state">
-        <div class="empty-icon">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="28" height="28">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
-          </svg>
-        </div>
-        <div class="empty-title">Welcome to RouteWise</div>
-        <div class="empty-text">
-          No graph data has been added yet. Start by creating locations (vertices) and warehouses to build your custom delivery network.
-        </div>
-        <div style="display:flex; gap:10px; margin-top:8px;">
-          <a href="/locations.html" class="btn btn-primary">Start by Adding Locations</a>
-        </div>
-      </div>
-    </div>
-
-    <!-- Active Dashboard: Road Network Preview & Recent Activity -->
-    <div id="overview-active-content" style="display:none; display:flex; flex-direction:column; gap:20px;">
-      <!-- Grid: Graph Preview & Warehouses -->
-      <div style="display:grid; grid-template-columns: 1.6fr 1fr; gap:20px;">
-        <!-- Graph Preview Card -->
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title-box">
-              <span class="panel-title">Road Network Graph Preview</span>
-            </div>
-            <a href="/roads.html" class="btn btn-secondary btn-sm">Full Screen & Add Roads →</a>
-          </div>
-          <div class="panel-body" style="padding:0;">
-            <div class="graph-container" id="overview-graph-container" style="height:360px; border:none; border-radius:0;"></div>
-          </div>
-        </div>
-
-        <!-- Warehouses List Card -->
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title-box">
-              <span class="panel-title">Active Warehouses</span>
-            </div>
-            <a href="/warehouses.html" class="btn btn-secondary btn-sm">+ Manage</a>
-          </div>
-          <div class="panel-body" style="padding:0;">
-            <div class="table-container" style="border:none; border-radius:0;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Hub Name</th>
-                    <th>Location Node</th>
-                    <th>Capacity</th>
-                  </tr>
-                </thead>
-                <tbody id="overview-warehouses-body">
-                  <tr><td colspan="3" style="text-align:center; color:#94a3b8;">No warehouses registered yet.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Recent Delivery Orders Table -->
+    <!-- TAB 1: ORDERS -->
+    <section id="pane-orders" class="tab-pane active">
+      <!-- Add Order Form -->
       <div class="panel">
         <div class="panel-header">
-          <div class="panel-title-box">
-            <span class="panel-title">Recent Delivery Orders</span>
-          </div>
-          <div style="display:flex; gap:8px;">
-            <a href="/orders.html" class="btn btn-secondary btn-sm">View All Orders →</a>
-            <a href="/orders.html" class="btn btn-primary btn-sm">+ New Order</a>
-          </div>
+          <span class="panel-title">Add Delivery Order</span>
         </div>
-        <div class="panel-body" style="padding:0;">
-          <div class="table-container" style="border:none; border-radius:0;">
+        <form id="form-add-order" class="form-row">
+          <div class="form-group" style="max-width:130px;">
+            <label class="form-label" for="inp-order-id">Order ID</label>
+            <input type="text" id="inp-order-id" class="form-control" placeholder="e.g. O106" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="inp-order-customer">Customer</label>
+            <input type="text" id="inp-order-customer" class="form-control" placeholder="Customer name" required>
+          </div>
+          <div class="form-group" style="max-width:160px;">
+            <label class="form-label" for="sel-order-dest">Destination</label>
+            <select id="sel-order-dest" class="form-select" required></select>
+          </div>
+          <div class="form-group" style="max-width:150px;">
+            <label class="form-label" for="sel-order-priority">Priority</label>
+            <select id="sel-order-priority" class="form-select" required>
+              <option value="Urgent">Urgent</option>
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">Add Order</button>
+        </form>
+      </div>
+
+      <!-- Orders Table -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Delivery Orders List</span>
+          <span id="orders-count-badge" style="font-size:0.8rem; color:var(--text-muted);">5 orders</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Destination</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="orders-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: ROAD NETWORK -->
+    <section id="pane-network" class="tab-pane">
+      <!-- Graph Visualization -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Weighted Road Network Graph</span>
+          <span style="font-size:0.75rem; color:var(--text-muted);">Drag nodes to rearrange</span>
+        </div>
+        <div id="network-graph-container" class="graph-card"></div>
+      </div>
+
+      <!-- Roads & Locations Management Grid -->
+      <div style="display:grid; grid-template-columns: 1.4fr 1fr; gap:16px;">
+        <!-- Roads Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Roads (Edges)</span>
+          </div>
+          <form id="form-add-road" class="form-row" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label class="form-label" for="sel-road-from">From</label>
+              <select id="sel-road-from" class="form-select" required></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sel-road-to">To</label>
+              <select id="sel-road-to" class="form-select" required></select>
+            </div>
+            <div class="form-group" style="max-width:110px;">
+              <label class="form-label" for="inp-road-weight">Weight (km)</label>
+              <input type="number" id="inp-road-weight" class="form-control" min="1" step="0.5" placeholder="km" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Road</button>
+          </form>
+
+          <div class="table-wrapper" style="max-height:260px; overflow-y:auto;">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Order ID</th>
-                  <th>Destination Location</th>
-                  <th>Assigned Hub</th>
-                  <th>Priority</th>
-                  <th>Package Wt.</th>
-                  <th>Service Time</th>
-                  <th>Status</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th>Distance (km)</th>
+                  <th style="text-align:right;">Actions</th>
                 </tr>
               </thead>
-              <tbody id="overview-orders-body">
-                <tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:24px;">No delivery orders yet.</td></tr>
+              <tbody id="roads-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Locations Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Locations (Nodes)</span>
+          </div>
+          <form id="form-add-loc" class="form-row" style="margin-bottom:14px;">
+            <div class="form-group" style="max-width:80px;">
+              <label class="form-label" for="inp-loc-id">ID</label>
+              <input type="text" id="inp-loc-id" class="form-control" placeholder="F" maxlength="3" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inp-loc-name">Location Name</label>
+              <input type="text" id="inp-loc-name" class="form-control" placeholder="e.g. Location F" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Add</button>
+          </form>
+
+          <div class="table-wrapper" style="max-height:260px; overflow-y:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="locations-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: PRIM'S ALGORITHM -->
+    <section id="pane-prims" class="tab-pane">
+      <!-- Prim's Controls Bar -->
+      <div class="panel" style="padding:12px 16px;">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <label for="sel-prim-start" style="font-weight:600; font-size:0.85rem; color:var(--text-muted);">Start Node:</label>
+            <select id="sel-prim-start" class="form-select" style="width:110px;"></select>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <button id="btn-prim-run" class="btn btn-primary">Run</button>
+            <button id="btn-prim-prev" class="btn btn-secondary">Previous Step</button>
+            <button id="btn-prim-next" class="btn btn-secondary">Next Step</button>
+            <button id="btn-prim-play" class="btn btn-secondary">Play</button>
+            <button id="btn-prim-reset" class="btn btn-secondary">Reset</button>
+            <button id="btn-prim-toggle-view" class="btn btn-outline">Show Final MST</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graph Visualization in center -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title" id="prim-view-title">Prim's Algorithm Execution View</span>
+          <span id="prim-step-indicator" style="font-size:0.8rem; font-weight:600; color:var(--primary);">Ready to run</span>
+        </div>
+        <div id="prim-graph-container" class="graph-card"></div>
+      </div>
+
+      <!-- Results & Step Explanation Section -->
+      <div class="panel">
+        <!-- Step Explanation Text -->
+        <div id="prim-step-explanation" style="font-size:0.88rem; font-weight:500; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:10px 14px; margin-bottom:14px;">
+          Select a starting node and click <strong>Run</strong> to execute Prim's Minimum Spanning Tree algorithm.
+        </div>
+
+        <!-- Metrics Strip -->
+        <div class="summary-strip" style="margin-bottom:14px;">
+          <div class="summary-item">Total MST Weight: <strong id="prim-metric-weight">0 km</strong></div>
+          <div class="summary-item">Selected Edges: <strong id="prim-metric-selected">0</strong></div>
+          <div class="summary-item">Excluded Edges (Cycles): <strong id="prim-metric-excluded">0</strong></div>
+          <div class="summary-item">Graph Status: <strong id="prim-metric-status">Connected</strong></div>
+        </div>
+
+        <!-- Disconnected Warning Box (Hidden by default) -->
+        <div id="prim-disconnected-box" style="display:none; margin-bottom:14px; padding:10px 14px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; color:#b91c1c; font-size:0.85rem;">
+          <strong>Graph Disconnected:</strong> One MST covering every vertex does not exist because some nodes are unreachable.
+        </div>
+
+        <!-- Selected MST Edges Table -->
+        <div>
+          <div style="font-weight:700; font-size:0.85rem; color:var(--text-main); margin-bottom:8px;">
+            Selected MST Edges (Spanning Tree):
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th>Weight (km)</th>
+                  <th>Decision</th>
+                </tr>
+              </thead>
+              <tbody id="prim-edges-table-body">
+                <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:16px;">Click Run to generate Prim's MST edges.</td></tr>
               </tbody>
             </table>
           </div>
         </div>
       </div>
-    </div>
-  </template>
+    </section>
 
-  <script type="module" src="/overview.js"></script>
+    <!-- TAB 4: DELIVERY OPTIMIZATION -->
+    <section id="pane-optimizer" class="tab-pane">
+      <!-- Delivery Controls Bar -->
+      <div class="panel" style="padding:12px 16px;">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px;">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label for="sel-opt-warehouse" style="font-weight:600; font-size:0.85rem; color:var(--text-muted);">Warehouse:</label>
+              <select id="sel-opt-warehouse" class="form-select" style="width:130px;"></select>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label for="sel-opt-metric" style="font-weight:600; font-size:0.85rem; color:var(--text-muted);">Metric:</label>
+              <select id="sel-opt-metric" class="form-select" style="width:150px;">
+                <option value="distance" selected>Distance (km)</option>
+                <option value="time">Travel Time (min)</option>
+              </select>
+            </div>
+
+            <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:600; cursor:pointer;">
+              <input type="checkbox" id="chk-opt-return" checked> Return to Warehouse
+            </label>
+          </div>
+
+          <button id="btn-generate-route" class="btn btn-primary">Generate Route</button>
+        </div>
+      </div>
+
+      <!-- Graph Visualization for Delivery Route -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Planned Delivery Tour Graph</span>
+          <span id="opt-plan-status" style="font-size:0.8rem; font-weight:600; color:var(--primary);">Ready</span>
+        </div>
+        <div id="opt-graph-container" class="graph-card"></div>
+      </div>
+
+      <!-- Route Results Section -->
+      <div class="panel">
+        <!-- Summary Metrics Strip -->
+        <div class="summary-strip" style="margin-bottom:14px;">
+          <div class="summary-item">Total Route Distance: <strong id="opt-metric-dist">0 km</strong></div>
+          <div class="summary-item">Total Travel Time: <strong id="opt-metric-time">0 min</strong></div>
+          <div class="summary-item">Orders Planned: <strong id="opt-metric-orders">0 / 0</strong></div>
+        </div>
+
+        <!-- Proposed Delivery Sequence Table -->
+        <div style="margin-bottom:16px;">
+          <div style="font-weight:700; font-size:0.85rem; color:var(--text-main); margin-bottom:8px;">
+            Proposed Delivery Sequence:
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Stop #</th>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Destination</th>
+                  <th>Priority</th>
+                  <th>Leg Distance</th>
+                  <th>Cumulative</th>
+                  <th style="text-align:right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="opt-route-table-body">
+                <tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:16px;">Click Generate Route to calculate delivery plan.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Explanation Note -->
+        <div class="info-note">
+          <strong>Algorithmic Explanation:</strong> The route sequence is computed using a priority-aware greedy heuristic (Urgent &gt; High &gt; Medium &gt; Low) with Dijkstra's algorithm for shortest road paths. As multi-stop vehicle tour planning (TSP/VRP) is NP-hard, this heuristic greedily selects the highest-priority closest destination at each stop. <em>Note: The route distance sums actual road legs traveled and is distinct from Prim's MST total.</em>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Edit Order Modal Dialog -->
+  <div id="modal-edit-order" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">Edit Delivery Order</div>
+      <form id="form-edit-order" style="display:flex; flex-direction:column; gap:12px;">
+        <input type="hidden" id="edit-order-id">
+        <div class="form-group">
+          <label class="form-label" for="edit-order-customer">Customer Name</label>
+          <input type="text" id="edit-order-customer" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-order-dest">Destination Location</label>
+          <select id="edit-order-dest" class="form-select" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-order-priority">Priority</label>
+          <select id="edit-order-priority" class="form-select" required>
+            <option value="Urgent">Urgent</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-order-status">Status</label>
+          <select id="edit-order-status" class="form-select" required>
+            <option value="Pending">Pending</option>
+            <option value="Delivered">Delivered</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-edit-order">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Road Modal Dialog -->
+  <div id="modal-edit-road" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">Edit Road Distance</div>
+      <form id="form-edit-road" style="display:flex; flex-direction:column; gap:12px;">
+        <input type="hidden" id="edit-road-id">
+        <div style="font-size:0.88rem; color:var(--text-muted);" id="edit-road-endpoints-text">
+          Road: A ➔ B
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-road-dist">Distance (km)</label>
+          <input type="number" id="edit-road-dist" class="form-control" min="0.5" step="0.5" required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-edit-road">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Weight</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Unified Application Logic -->
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

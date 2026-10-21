@@ -1,31 +1,30 @@
 /**
- * RouteWise - Interactive Weighted Road Network Graph Visualization
- * Pure SVG, draggable nodes, edge weights, one-way arrow markers, and path highlights.
+ * GraphView - Interactive SVG Weighted Graph Visualization
+ * Supports Road Network inspection, Prim's Algorithm step & final MST modes,
+ * and Delivery Route sequence highlighting.
  */
-
-import { apiFetch, showToast } from './common.js';
 
 export class GraphView {
   constructor(containerElement, options = {}) {
     this.container = typeof containerElement === 'string' ? document.getElementById(containerElement) : containerElement;
     this.options = {
-      width: options.width || 800,
-      height: options.height || 520,
+      width: options.width || 720,
+      height: options.height || 340,
       interactive: options.interactive !== false,
-      onNodeClick: options.onNodeClick || null,
-      onEdgeClick: options.onEdgeClick || null,
       showWeights: options.showWeights !== false,
+      mode: options.mode || 'network', // 'network' | 'prims' | 'route'
       ...options
     };
 
     this.locations = [];
     this.roads = [];
-    this.warehouses = [];
     this.positions = {};
-    this.highlightedPath = []; // Array of location names
-    this.routeStops = []; // Array of stop objects with sequence
-    this.activeNode = null;
-    this.selectedEdge = null;
+    this.mstEdges = []; // array of { from, to, weight }
+    this.finalMstOnly = false;
+    this.visitedNodes = new Set();
+    this.currentEdge = null;
+    this.highlightedPath = []; // array of location IDs
+    this.routeStops = []; // array of { destination, sequence }
 
     this.dragTarget = null;
     this.dragOffset = { x: 0, y: 0 };
@@ -35,40 +34,10 @@ export class GraphView {
 
   initSvg() {
     this.container.innerHTML = `
-      <div class="graph-toolbar">
-        <button class="btn btn-secondary btn-sm" id="btn-auto-layout" title="Automatically arrange nodes">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-          </svg>
-          <span>Auto Layout</span>
-        </button>
-        <button class="btn btn-secondary btn-sm" id="btn-reset-zoom" title="Center graph">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
-          </svg>
-          <span>Center</span>
-        </button>
-      </div>
-
-      <div class="graph-legend">
-        <div class="legend-item"><span class="legend-symbol" style="background:#eff6ff; border:2px solid #2563eb;"></span> Warehouse Hub</div>
-        <div class="legend-item"><span class="legend-symbol" style="background:#ffffff; border:2px solid #1e293b;"></span> Location Node</div>
-        <div class="legend-item"><span style="width:16px; height:3px; background:#94a3b8; display:inline-block;"></span> Bidirectional Road</div>
-        <div class="legend-item"><span style="color:#64748b; font-weight:bold;">➔</span> One-Way Road</div>
-        <div class="legend-item"><span style="width:16px; height:4px; background:#2563eb; display:inline-block;"></span> Active Route / Path</div>
-      </div>
-
-      <svg class="graph-svg" id="graph-svg-root" viewBox="0 0 ${this.options.width} ${this.options.height}">
+      <svg class="graph-svg" id="graph-svg-root" viewBox="0 0 ${this.options.width} ${this.options.height}" style="width:100%; height:100%; display:block; user-select:none;">
         <defs>
-          <!-- Arrow marker for one-way roads -->
-          <marker id="arrow-default" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#64748b" />
-          </marker>
-          <marker id="arrow-active" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <marker id="arrow-route" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#2563eb" />
-          </marker>
-          <marker id="arrow-return" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#7c3aed" />
           </marker>
         </defs>
         <g id="edges-layer"></g>
@@ -82,100 +51,47 @@ export class GraphView {
     this.edgeLabelsLayer = this.container.querySelector('#edge-labels-layer');
     this.nodesLayer = this.container.querySelector('#nodes-layer');
 
-    this.container.querySelector('#btn-auto-layout')?.addEventListener('click', () => {
-      this.calculateAutoLayout();
-      this.render();
-      this.savePositions();
-    });
-
-    this.container.querySelector('#btn-reset-zoom')?.addEventListener('click', () => {
-      this.centerGraph();
-      this.render();
-    });
-
     if (this.options.interactive) {
       this.setupDragging();
     }
   }
 
-  async loadData() {
-    try {
-      const [locRes, whRes, roadRes, posRes] = await Promise.all([
-        apiFetch('/locations'),
-        apiFetch('/warehouses'),
-        apiFetch('/roads'),
-        apiFetch('/graph/positions')
-      ]);
-
-      this.locations = locRes.locations || [];
-      this.roads = roadRes.roads || [];
-      this.warehouses = whRes.warehouses || [];
-      this.positions = posRes.positions || {};
-
-      this.validatePositions();
-      this.render();
-    } catch (err) {
-      console.error('Failed to load graph data:', err);
-    }
-  }
-
-  setData({ locations, roads, warehouses, positions, highlightedPath, routeStops }) {
+  setData({
+    locations,
+    roads,
+    positions,
+    mstEdges,
+    finalMstOnly,
+    visitedNodes,
+    currentEdge,
+    highlightedPath,
+    routeStops
+  }) {
     if (locations) this.locations = locations;
     if (roads) this.roads = roads;
-    if (warehouses) this.warehouses = warehouses;
     if (positions) this.positions = positions;
-    if (highlightedPath !== undefined) this.highlightedPath = highlightedPath;
-    if (routeStops !== undefined) this.routeStops = routeStops;
+    if (mstEdges !== undefined) this.mstEdges = mstEdges || [];
+    if (finalMstOnly !== undefined) this.finalMstOnly = Boolean(finalMstOnly);
+    if (visitedNodes !== undefined) this.visitedNodes = new Set(visitedNodes || []);
+    if (currentEdge !== undefined) this.currentEdge = currentEdge;
+    if (highlightedPath !== undefined) this.highlightedPath = highlightedPath || [];
+    if (routeStops !== undefined) this.routeStops = routeStops || [];
 
     this.validatePositions();
     this.render();
   }
 
   validatePositions() {
-    let needsSave = false;
     const w = this.options.width;
     const h = this.options.height;
     const count = this.locations.length;
 
     this.locations.forEach((loc, idx) => {
-      if (!this.positions[loc.name]) {
-        // Place in circle
+      const id = loc.id;
+      if (!this.positions[id]) {
         const angle = (idx / Math.max(1, count)) * 2 * Math.PI - Math.PI / 2;
         const radius = Math.min(w, h) * 0.35;
-        this.positions[loc.name] = {
-          x: Math.round(w / 2 + radius * Math.cos(angle)),
-          y: Math.round(h / 2 + radius * Math.sin(angle))
-        };
-        needsSave = true;
-      }
-    });
-
-    if (needsSave && count > 0) {
-      this.savePositions();
-    }
-  }
-
-  calculateAutoLayout() {
-    const w = this.options.width;
-    const h = this.options.height;
-    const count = this.locations.length;
-    if (count === 0) return;
-
-    // Arrange warehouse hubs centrally or distinctly, others in circle
-    const whLocations = new Set(this.warehouses.map((w) => w.location));
-
-    this.locations.forEach((loc, idx) => {
-      if (whLocations.has(loc.name) && count > 3) {
-        // inner ring
-        const angle = (idx / count) * 2 * Math.PI;
-        this.positions[loc.name] = {
-          x: Math.round(w / 2 + 110 * Math.cos(angle)),
-          y: Math.round(h / 2 + 90 * Math.sin(angle))
-        };
-      } else {
-        const angle = (idx / count) * 2 * Math.PI - Math.PI / 2;
-        const radius = Math.min(w, h) * 0.38;
-        this.positions[loc.name] = {
+        this.positions[id] = {
           x: Math.round(w / 2 + radius * Math.cos(angle)),
           y: Math.round(h / 2 + radius * Math.sin(angle))
         };
@@ -183,54 +99,25 @@ export class GraphView {
     });
   }
 
-  centerGraph() {
-    const locNames = Object.keys(this.positions);
-    if (!locNames.length) return;
-
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    locNames.forEach((name) => {
-      const p = this.positions[name];
-      if (p) {
-        minX = Math.min(minX, p.x);
-        maxX = Math.max(maxX, p.x);
-        minY = Math.min(minY, p.y);
-        maxY = Math.max(maxY, p.y);
-      }
-    });
-
-    const currentCenterX = (minX + maxX) / 2;
-    const currentCenterY = (minY + maxY) / 2;
-    const targetCenterX = this.options.width / 2;
-    const targetCenterY = this.options.height / 2;
-    const shiftX = Math.round(targetCenterX - currentCenterX);
-    const shiftY = Math.round(targetCenterY - currentCenterY);
-
-    locNames.forEach((name) => {
-      if (this.positions[name]) {
-        this.positions[name].x += shiftX;
-        this.positions[name].y += shiftY;
-      }
-    });
-    this.savePositions();
+  isMstEdge(u, v) {
+    if (!this.mstEdges || this.mstEdges.length === 0) return false;
+    return this.mstEdges.some(
+      (e) => (e.from === u && e.to === v) || (e.from === v && e.to === u)
+    );
   }
 
-  async savePositions() {
-    try {
-      await apiFetch('/graph/positions', {
-        method: 'POST',
-        body: JSON.stringify({ positions: this.positions })
-      });
-    } catch {
-      // silent
-    }
+  isCurrentCutEdge(u, v) {
+    if (!this.currentEdge) return false;
+    const { from, to } = this.currentEdge;
+    return (from === u && to === v) || (from === v && to === u);
   }
 
-  isPathEdge(start, dest) {
+  isPathEdge(u, v) {
     if (!this.highlightedPath || this.highlightedPath.length < 2) return false;
     for (let i = 0; i < this.highlightedPath.length - 1; i++) {
-      const u = this.highlightedPath[i];
-      const v = this.highlightedPath[i + 1];
-      if ((u === start && v === dest) || (u === dest && v === start)) return true;
+      const p1 = this.highlightedPath[i];
+      const p2 = this.highlightedPath[i + 1];
+      if ((p1 === u && p2 === v) || (p1 === v && p2 === u)) return true;
     }
     return false;
   }
@@ -243,7 +130,7 @@ export class GraphView {
     if (this.locations.length === 0) {
       this.nodesLayer.innerHTML = `
         <text x="${this.options.width / 2}" y="${this.options.height / 2}" text-anchor="middle" fill="#94a3b8" font-size="14">
-          No locations added yet. Click "+ Add Location" to start.
+          No locations in graph. Add locations to view network.
         </text>
       `;
       return;
@@ -255,23 +142,41 @@ export class GraphView {
       const p2 = this.positions[road.destination];
       if (!p1 || !p2) return;
 
+      const isMst = this.isMstEdge(road.start, road.destination);
+      const isCut = this.isCurrentCutEdge(road.start, road.destination);
       const isPath = this.isPathEdge(road.start, road.destination);
-      const isOneWay = road.bidirectional === false;
+
+      // In Final MST view, ONLY show selected MST edges (hide excluded edges without deleting them!)
+      if (this.finalMstOnly && !isMst) {
+        return;
+      }
 
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('x1', p1.x);
       line.setAttribute('y1', p1.y);
       line.setAttribute('x2', p2.x);
       line.setAttribute('y2', p2.y);
-      line.setAttribute('class', `graph-edge ${isPath ? 'edge-path' : ''}`);
 
-      if (isOneWay) {
-        line.setAttribute('marker-end', isPath ? 'url(#arrow-active)' : 'url(#arrow-default)');
+      let strokeColor = '#cbd5e1';
+      let strokeWidth = '2';
+      let strokeDash = '';
+
+      if (this.finalMstOnly || isMst) {
+        strokeColor = '#16a34a'; // Vibrant green for MST tree edges
+        strokeWidth = '3.5';
+      } else if (isCut) {
+        strokeColor = '#eab308'; // Amber/yellow for currently considered cut edge
+        strokeWidth = '3';
+        strokeDash = '4,3';
+      } else if (isPath) {
+        strokeColor = '#2563eb'; // Blue for active delivery tour path
+        strokeWidth = '3.5';
       }
 
-      line.addEventListener('click', () => {
-        if (this.options.onEdgeClick) this.options.onEdgeClick(road);
-      });
+      line.setAttribute('stroke', strokeColor);
+      line.setAttribute('stroke-width', strokeWidth);
+      if (strokeDash) line.setAttribute('stroke-dasharray', strokeDash);
+      line.setAttribute('stroke-linecap', 'round');
 
       this.edgesLayer.appendChild(line);
 
@@ -281,10 +186,9 @@ export class GraphView {
         const midY = (p1.y + p2.y) / 2;
 
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        g.setAttribute('class', 'graph-edge-label-group');
 
-        const weightText = `${road.distanceKm}km · ${road.travelTimeMin}m · ₹${road.costRupees}`;
-        const rectW = Math.max(76, weightText.length * 6.5);
+        const weightText = `${road.distanceKm} km`;
+        const rectW = Math.max(50, weightText.length * 7.5);
         const rectH = 18;
 
         const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -292,91 +196,123 @@ export class GraphView {
         bg.setAttribute('y', midY - rectH / 2);
         bg.setAttribute('width', rectW);
         bg.setAttribute('height', rectH);
-        bg.setAttribute('class', 'graph-edge-label-bg');
-        if (isPath) {
-          bg.setAttribute('stroke', '#2563eb');
-          bg.setAttribute('stroke-width', '1.5');
-        }
+        bg.setAttribute('rx', '4');
+        bg.setAttribute('fill', isMst ? '#f0fdf4' : (isPath ? '#eff6ff' : '#ffffff'));
+        bg.setAttribute('stroke', isMst ? '#16a34a' : (isPath ? '#2563eb' : '#cbd5e1'));
+        bg.setAttribute('stroke-width', '1');
 
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('x', midX);
-        text.setAttribute('y', midY);
-        text.setAttribute('class', 'graph-edge-label-text');
+        text.setAttribute('y', midY + 4);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('font-size', '11');
+        text.setAttribute('font-weight', '600');
+        text.setAttribute('fill', isMst ? '#15803d' : (isPath ? '#1e40af' : '#475569'));
+        text.setAttribute('font-family', 'system-ui, -apple-system, sans-serif');
         text.textContent = weightText;
 
         g.appendChild(bg);
         g.appendChild(text);
-        g.addEventListener('click', () => {
-          if (this.options.onEdgeClick) this.options.onEdgeClick(road);
-        });
-
         this.edgeLabelsLayer.appendChild(g);
       }
     });
 
     // 2. Draw Nodes
-    const whMap = new Map();
-    this.warehouses.forEach((w) => whMap.set(w.location, w));
-
     this.locations.forEach((loc) => {
-      const p = this.positions[loc.name];
+      const p = this.positions[loc.id];
       if (!p) return;
 
-      const isWh = whMap.has(loc.name);
-      const whInfo = whMap.get(loc.name);
-      const isPath = this.highlightedPath && this.highlightedPath.includes(loc.name);
+      const isWh = loc.isWarehouse || loc.id === 'W';
+      const isVisited = this.visitedNodes.has(loc.id);
+      const isPathNode = this.highlightedPath && this.highlightedPath.includes(loc.id);
 
-      // Find stop sequence if this is in a route run
-      const stopInfo = this.routeStops.find((s) => s.customerLocation === loc.name || (s.path && s.path.path && s.path.path.includes(loc.name)));
+      // Check if this node is a stop in delivery plan
+      const stopIdx = this.routeStops.findIndex((s) => (s.destination || s.customerLocation) === loc.id);
 
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      g.setAttribute('class', `graph-node ${isWh ? 'node-warehouse' : ''} ${isPath ? 'node-active' : ''}`);
-      g.setAttribute('data-node-name', loc.name);
+      g.setAttribute('class', 'graph-node');
+      g.setAttribute('data-node-id', loc.id);
       g.setAttribute('transform', `translate(${p.x}, ${p.y})`);
+      g.style.cursor = 'grab';
 
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('r', isWh ? '24' : '20');
-      circle.setAttribute('class', 'node-circle');
-      g.appendChild(circle);
+      circle.setAttribute('r', isWh ? '22' : '18');
 
-      // Node label
-      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('class', 'node-text');
-      text.setAttribute('y', isWh ? '-2' : '0');
-      text.textContent = loc.name.length > 10 ? loc.name.slice(0, 9) + '…' : loc.name;
-      g.appendChild(text);
+      let fillColor = '#ffffff';
+      let strokeColor = '#334155';
+      let strokeWidth = '2';
+
+      if (isVisited) {
+        fillColor = '#dcfce7'; // Soft green for Prim's visited set S
+        strokeColor = '#16a34a';
+        strokeWidth = '2.5';
+      } else if (isPathNode) {
+        fillColor = '#eff6ff'; // Soft blue for route
+        strokeColor = '#2563eb';
+        strokeWidth = '2.5';
+      }
 
       if (isWh) {
+        strokeWidth = '3';
+        if (!isVisited && !isPathNode) {
+          fillColor = '#f8fafc';
+          strokeColor = '#0f172a';
+        }
+      }
+
+      circle.setAttribute('fill', fillColor);
+      circle.setAttribute('stroke', strokeColor);
+      circle.setAttribute('stroke-width', strokeWidth);
+      g.appendChild(circle);
+
+      // Node ID Text
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('y', isWh ? '-2' : '4');
+      text.setAttribute('font-size', '13');
+      text.setAttribute('font-weight', '700');
+      text.setAttribute('fill', isVisited ? '#15803d' : (isPathNode ? '#1e40af' : '#0f172a'));
+      text.setAttribute('font-family', 'system-ui, -apple-system, sans-serif');
+      text.textContent = loc.id;
+      g.appendChild(text);
+
+      // Warehouse Hub tag
+      if (isWh) {
         const subtext = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        subtext.setAttribute('class', 'node-subtext');
-        subtext.setAttribute('y', '12');
+        subtext.setAttribute('text-anchor', 'middle');
+        subtext.setAttribute('y', '11');
+        subtext.setAttribute('font-size', '8');
+        subtext.setAttribute('font-weight', '800');
+        subtext.setAttribute('fill', '#2563eb');
+        subtext.setAttribute('letter-spacing', '0.5');
         subtext.textContent = 'HUB';
         g.appendChild(subtext);
       }
 
-      // Stop badge if scheduled in route
-      if (stopInfo && stopInfo.sequence != null) {
+      // Stop badge for Delivery Plan sequence
+      if (stopIdx !== -1) {
         const badgeG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         const badgeCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        badgeCircle.setAttribute('cx', '16');
-        badgeCircle.setAttribute('cy', '-16');
-        badgeCircle.setAttribute('r', '9');
-        badgeCircle.setAttribute('class', 'node-stop-badge');
+        badgeCircle.setAttribute('cx', '14');
+        badgeCircle.setAttribute('cy', '-14');
+        badgeCircle.setAttribute('r', '8');
+        badgeCircle.setAttribute('fill', '#2563eb');
+        badgeCircle.setAttribute('stroke', '#ffffff');
+        badgeCircle.setAttribute('stroke-width', '1.5');
 
         const badgeText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        badgeText.setAttribute('x', '16');
-        badgeText.setAttribute('y', '-16');
-        badgeText.setAttribute('class', 'node-stop-badge-text');
-        badgeText.textContent = stopInfo.sequence;
+        badgeText.setAttribute('x', '14');
+        badgeText.setAttribute('y', '-11');
+        badgeText.setAttribute('text-anchor', 'middle');
+        badgeText.setAttribute('font-size', '9');
+        badgeText.setAttribute('font-weight', '700');
+        badgeText.setAttribute('fill', '#ffffff');
+        badgeText.textContent = stopIdx + 1;
 
         badgeG.appendChild(badgeCircle);
         badgeG.appendChild(badgeText);
         g.appendChild(badgeG);
       }
-
-      g.addEventListener('click', () => {
-        if (this.options.onNodeClick) this.options.onNodeClick(loc, isWh ? whInfo : null);
-      });
 
       this.nodesLayer.appendChild(g);
     });
@@ -393,33 +329,41 @@ export class GraphView {
     this.svg.addEventListener('mousedown', (e) => {
       const nodeG = e.target.closest('.graph-node');
       if (nodeG) {
-        const name = nodeG.getAttribute('data-node-name');
-        if (name && this.positions[name]) {
-          this.dragTarget = name;
-          const svgPt = getSvgPoint(e);
+        const id = nodeG.getAttribute('data-node-id');
+        if (id && this.positions[id]) {
+          this.dragTarget = id;
+          const pt = getSvgPoint(e);
           this.dragOffset = {
-            x: svgPt.x - this.positions[name].x,
-            y: svgPt.y - this.positions[name].y
+            x: pt.x - this.positions[id].x,
+            y: pt.y - this.positions[id].y
           };
+          nodeG.style.cursor = 'grabbing';
         }
       }
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (this.dragTarget && this.positions[this.dragTarget]) {
-        const svgPt = getSvgPoint(e);
-        const newX = Math.max(30, Math.min(this.options.width - 30, Math.round(svgPt.x - this.dragOffset.x)));
-        const newY = Math.max(30, Math.min(this.options.height - 30, Math.round(svgPt.y - this.dragOffset.y)));
-        this.positions[this.dragTarget].x = newX;
-        this.positions[this.dragTarget].y = newY;
-        this.render();
-      }
+      if (!this.dragTarget) return;
+      const pt = getSvgPoint(e);
+      const newX = Math.max(30, Math.min(this.options.width - 30, Math.round(pt.x - this.dragOffset.x)));
+      const newY = Math.max(30, Math.min(this.options.height - 30, Math.round(pt.y - this.dragOffset.y)));
+
+      this.positions[this.dragTarget] = { x: newX, y: newY };
+      this.render();
     });
 
-    window.addEventListener('mouseup', () => {
+    window.addEventListener('mouseup', async () => {
       if (this.dragTarget) {
         this.dragTarget = null;
-        this.savePositions();
+        try {
+          await fetch('/api/graph/positions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ positions: this.positions })
+          });
+        } catch {
+          // ignore
+        }
       }
     });
   }

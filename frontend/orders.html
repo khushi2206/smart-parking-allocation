@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delivery Orders • RouteWise</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app-root"></div>
+
+  <template id="page-content">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title-box">
+          <span class="panel-title">Delivery Order Management</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button class="btn btn-primary btn-sm" id="btn-open-add-order">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            <span>+ Create Order</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters Bar -->
+      <div style="padding:14px 20px; background:#f8fafc; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <input type="text" id="order-search-input" class="form-input" placeholder="Search order ID or location..." style="width:200px; padding:6px 10px; font-size:0.82rem;">
+
+        <select id="filter-priority" class="form-select" style="width:140px; padding:6px 10px; font-size:0.82rem;">
+          <option value="">All Priorities</option>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Normal">Normal</option>
+          <option value="Low">Low</option>
+        </select>
+
+        <select id="filter-status" class="form-select" style="width:140px; padding:6px 10px; font-size:0.82rem;">
+          <option value="">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Planned">Planned</option>
+          <option value="Delivered">Delivered</option>
+          <option value="Unreachable">Unreachable</option>
+        </select>
+
+        <select id="filter-warehouse" class="form-select" style="width:160px; padding:6px 10px; font-size:0.82rem;">
+          <option value="">All Warehouses</option>
+          <option value="any">Auto / Any Hub</option>
+        </select>
+
+        <button class="btn btn-secondary btn-sm" id="btn-clear-filters">Reset Filters</button>
+      </div>
+
+      <div class="panel-body" style="padding:0;">
+        <div class="table-container" style="border:none; border-radius:0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Destination</th>
+                <th>Assigned Hub</th>
+                <th>Priority</th>
+                <th>Weight (kg)</th>
+                <th>Service Time</th>
+                <th>Deadline</th>
+                <th>Status</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="orders-table-body">
+              <tr><td colspan="9" style="text-align:center; padding:32px; color:#94a3b8;">Loading orders...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <span id="orders-count-label" style="color:#64748b;">0 orders listed</span>
+        <span style="font-size:0.75rem; color:#64748b;">Orders are prioritized during route optimization: Critical &gt; High &gt; Normal &gt; Low.</span>
+      </div>
+    </div>
+
+    <!-- Add/Edit Order Modal -->
+    <div class="modal-backdrop" id="order-modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="order-modal-title">Create Delivery Order</h3>
+          <button class="btn-icon" id="order-modal-close" aria-label="Close modal">✕</button>
+        </div>
+        <form id="order-form">
+          <div class="modal-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="order-id-input">Order ID *</label>
+                <input type="text" id="order-id-input" class="form-input" placeholder="e.g. ORD-101" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="order-loc-select">Destination Location *</label>
+                <select id="order-loc-select" class="form-select" required>
+                  <option value="">-- Choose destination --</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="order-priority-select">Priority Level *</label>
+                <select id="order-priority-select" class="form-select" required>
+                  <option value="Critical">Critical (P1 - Urgent)</option>
+                  <option value="High">High (P2 - Express)</option>
+                  <option value="Normal" selected>Normal (P3 - Standard)</option>
+                  <option value="Low">Low (P4 - Flexible)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="order-wh-select">Fulfillment Warehouse</label>
+                <select id="order-wh-select" class="form-select">
+                  <option value="any">Auto / Any Eligible Hub</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="order-weight-input">Package Weight (kg)</label>
+                <input type="number" id="order-weight-input" class="form-input" min="0" step="0.5" value="15">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="order-service-input">Service Time (Minutes)</label>
+                <input type="number" id="order-service-input" class="form-input" min="0" step="1" value="10">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="order-deadline-input">Delivery Deadline <span class="optional">(Optional)</span></label>
+                <input type="datetime-local" id="order-deadline-input" class="form-input">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="order-status-select">Status</label>
+                <select id="order-status-select" class="form-select">
+                  <option value="Pending">Pending</option>
+                  <option value="Planned">Planned</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Unreachable">Unreachable</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="order-modal-cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="order-modal-submit">Save Order</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </template>
+
+  <script type="module" src="/orders.js"></script>
+</body>
+</html>

@@ -1,428 +1,174 @@
-# 🚗 Smart Parking Allocation System
+# RouteWise: Multi-Warehouse Delivery Route Optimizer
 
-A comprehensive parking management system that demonstrates **Data Structures & Algorithms** in action! This project efficiently manages parking spots using advanced DSA concepts including Binary Search Trees, Priority Queues, Graphs, and Stacks.
+A complete, production-grade Design and Analysis of Algorithms (DAA) project demonstrating graph theory, custom data structures, shortest-path algorithms, and multi-warehouse logistics optimization.
 
----
-
-## 📋 Table of Contents
-- [Overview](#overview)
-- [How to Run](#how-to-run)
-- [Features](#features)
-- [Data Structures Explained](#data-structures-explained)
-- [System Architecture](#system-architecture)
-- [Usage Guide](#usage-guide)
-- [Technical Details](#technical-details)
+Built with **HTML5, CSS3, Vanilla JavaScript, Node.js, and Express.js** without heavy frameworks, TypeScript, or external map dependencies.
 
 ---
 
-## 🎯 Overview
+## 🌟 Key Highlights & DAA Concepts
 
-This project is a **real-world application of Data Structures & Algorithms** built for managing a parking facility with:
-- **80 Total Parking Slots**: 20 Cars + 40 Two-Wheelers + 20 Trucks
-- **Multi-lane Layout**: Different lanes for different vehicle types
-- **Priority-based Waitlist**: VIP customers get priority when parking is full
-- **Real-time Token Generation**: Downloadable parking tokens with QR codes
-- **Admin Dashboard**: Monitor system performance and DSA operations
+1. **Topological Weighted Graph ($G = (V, E)$)**:
+   - Represented using a custom `Map<Location, Edge[]>` adjacency list.
+   - Independent non-negative weights for:
+     - Distance in kilometres
+     - Travel time in total minutes (hours and minutes converted internally)
+     - Monetary cost in Indian Rupees (₹)
+   - Supports both two-way (**bidirectional**) and one-way (**directed**) roads.
 
----
+2. **Custom Binary Min-Heap (`MinPriorityQueue`)**:
+   - Manually implemented array-backed complete binary tree without any third-party packages.
+   - Operations: `insert` with bubble-up in $O(\log V)$, `extractMin` with bubble-down in $O(\log V)$, `peek` in $O(1)$.
+   - Full mathematical properties: parent $\lfloor(i-1)/2\rfloor$, children $2i+1$ and $2i+2$.
 
-## 🚀 How to Run
+3. **Dijkstra's Algorithm with Single Objective Weight**:
+   - Single-source shortest path algorithm using the custom binary min-heap.
+   - Strictly avoids mixing incompatible units: operates purely on Distance, Time, or Cost.
+   - Step-by-step interactive debugger capturing heap state, visited set, distance table updates, and edge relaxations.
+   - Path reconstruction using a linear predecessor map.
+   - Time Complexity: $\mathcal{O}((V + E) \log V)$, Space Complexity: $\mathcal{O}(V + E)$.
 
-### Option 1: Python HTTP Server (Recommended)
-```bash
-cd smart-parking-allocation
-python3 -m http.server 8000
-```
-Then open: `http://localhost:8000`
+4. **Multi-Warehouse Priority-Aware Delivery Optimizer**:
+   - Plans multi-stop vehicle tours departing from any designated warehouse.
+   - Solves vehicle routing with a documented **Priority-Aware Greedy Heuristic**:
+     1. Prioritizes orders by urgency: **Critical** $>$ **High** $>$ **Normal** $>$ **Low**.
+     2. Evaluates deadline lateness and delivery service times.
+     3. For flexible orders, assigns the best eligible warehouse respecting vehicle/depot capacity constraints.
+     4. Dynamically re-runs Dijkstra from current location to candidate stops.
+     5. Optional return routing to the starting warehouse.
+   - Includes **Balanced Normalization** mode combining Cost & Time with customizable weights ($W_{\text{cost}} + W_{\text{time}} = 100\%$):
+     $$\text{score} = \frac{W_{\text{cost}}}{100} \cdot \frac{\text{cost} - \text{minCost}}{\text{maxCost} - \text{minCost}} + \frac{W_{\text{time}}}{100} \cdot \frac{\text{time} - \text{minTime}}{\text{maxTime} - \text{minTime}}$$
+   - Overall Optimizer Worst-case Complexity: $\mathcal{O}(K^2 \cdot (V + E) \log V)$ where $K$ is the number of orders.
 
-### Option 2: Node.js http-server
-```bash
-npx http-server -p 8000
-```
+5. **Interactive Pure SVG Graph Visualization**:
+   - Custom SVG canvas with zero external graph libraries.
+   - Draggable nodes with coordinate persistence across sessions.
+   - Warehouse hub indicators, edge weight badges, one-way directed arrow markers, and tour stop numbering (①, ②, ③...).
+   - Node and road inspector cards.
 
-### Option 3: PHP Server
-```bash
-php -S localhost:8000
-```
-
-### Option 4: Direct Open (May have limitations)
-```bash
-open index.html
-```
-
----
-
-## ✨ Features
-
-### 🎫 **Smart Token System**
-- Auto-generated tokens with unique IDs (Format: `TKN-YYYYMMDD-XXXXX`)
-- Downloadable tokens as text files
-- Share functionality (clipboard/native share)
-- Real-time fee calculation based on parking duration
-- Pricing: Cars ₹120/day | Two-Wheelers ₹50/day | Trucks ₹300/day
-
-### 🎨 **Modern Admin Panel**
-- Blue & white professional theme
-- Real-time statistics dashboard
-- Active token management with search
-- Recent bookings history
-- Revenue tracking
-- **DSA Showcase Section** - See your data structures in action!
-
-### 🔍 **Search & Filter**
-- Search tokens by ID or vehicle number
-- Filter by vehicle type
-- Real-time updates
-
-### ⚡ **Efficient Slot Management**
-- Dynamic allocation based on availability
-- VIP priority queue system
-- Automatic waitlist processing
-- Multi-lane support
+6. **In-Memory Server State**:
+   - Deliberately starts 100% empty to let the user create and test everything from scratch.
+   - Includes a **Load Demo Scenario** button for instant one-click demonstration during evaluations and viva presentations.
+   - Explains in the UI that data resets on server restart.
 
 ---
 
-## 🧠 Data Structures Explained
+## 📁 Project Structure
 
-### 1. **Binary Search Tree (BST) - AVL Balanced Tree**
-
-**What it does:**
-- Manages all 80 parking slots efficiently
-- Self-balancing for optimal performance
-- Enables fast slot search, insert, and update operations
-
-**Real Numbers Explained:**
-- **Total Slots in Tree: 80** - All parking slots stored as nodes
-- **Tree Height: ~6-7** - Maximum depth from root to leaf (log₂(80) ≈ 6.3)
-- **Available Slots Found: X** - How many empty slots the BST can quickly locate
-- **Time Complexity: O(log n)** - Super fast even with thousands of slots!
-
-**What you see:**
-```
-Recent BST Operations:
-INSERT: Slot C-1-5 → ABC123 (car)
-INSERT: Slot T-2-3 → XYZ789 (twoWheeler)
-UPDATE: Slot C-1-5 → RELEASED
-```
-
----
-
-### 2. **Priority Queue (Waitlist System)**
-
-**What it does:**
-- When parking is FULL, customers join a waitlist
-- VIP customers are served FIRST (priority)
-- Regular customers wait in normal queue
-- When a slot frees up, VIP queue is checked first, then regular queue
-
-**Real Numbers Explained:**
-- **Cars Waiting (VIP/Regular): 2/5** means:
-  - 2 VIP customers waiting for car slots
-  - 5 Regular customers waiting for car slots
-  - **VIPs will get slots first when they become available!**
-
-**Why it shows 0/0:**
-> ✅ **This is NORMAL!** Waitlist only fills when ALL 80 parking slots are full. Right now you have available slots, so nobody needs to wait!
-
-**To test the waitlist:**
-1. Book all 20 car slots
-2. Try booking another car
-3. You'll be added to the waitlist!
-4. Release a car slot
-5. Watch the waitlist automatically allocate to the waiting vehicle
-
-**Time Complexity: O(1)** - Instant enqueue/dequeue!
-
----
-
-### 3. **Graph (Adjacency List) - Parking Layout**
-
-**What it does:**
-- Represents the physical layout of parking slots
-- Each slot is a **vertex (node)**
-- Connections between neighboring slots are **edges (links)**
-- Used for pathfinding and layout visualization
-
-**Real Numbers Explained:**
-- **Total Parking Slots: 80** - Total vertices in the graph
-- **Slot Connections: 73** - Total edges (connections between neighbors)
-- **Lanes Mapped: 3** - Car, Two-Wheeler, Truck sections
-
-**🤔 Why 73 Connections?**
-
-Let me break it down:
-
-**Car Section: 2 lanes**
-- Car Lane A: 10 slots → 9 connections (each slot connects to next)
-- Car Lane B: 10 slots → 9 connections
-- **Subtotal: 18 connections**
-
-**Two-Wheeler Section: 4 lanes**
-- Lane A: 10 slots → 9 connections
-- Lane B: 10 slots → 9 connections
-- Lane C: 10 slots → 9 connections
-- Lane D: 10 slots → 9 connections
-- **Subtotal: 36 connections**
-
-**Truck Section: 1 lane**
-- Lane A: 20 slots → 19 connections
-- **Subtotal: 19 connections**
-
-**Total: 18 + 36 + 19 = 73 connections!** ✅
-
-Think of it like this: If you have 10 parking slots in a row, there are 9 connections between them (slot 1↔2, 2↔3, 3↔4... 9↔10).
-
-**Layout Structure shows:**
-```
-🚗 CAR: 2 lanes (5/20 occupied)
-🏍️ TWOWHEELER: 4 lanes (1/40 occupied)  
-🚚 TRUCK: 1 lane (0/20 occupied)
-```
-
----
-
-### 4. **Stack (LIFO - Last In, First Out)**
-
-**What it does:**
-- Stores booking history
-- Most recent booking is on top (last in)
-- Operates like a stack of papers - last added is first accessed
-
-**Real Numbers Explained:**
-- **Total Records: 15** - Total bookings made (stack size)
-- **Recent Entry: ABC123** - Vehicle number on top of stack (most recent booking)
-
-**Time Complexity: O(1)** - Push and pop in constant time!
-
----
-
-## 🏗️ System Architecture
-
-### Parking Layout
-```
-Total Slots: 80
-
-┌─────────────────────────────────────┐
-│  CAR SECTION (20 slots)             │
-│  ├─ Lane A: 10 slots                │
-│  └─ Lane B: 10 slots                │
-├─────────────────────────────────────┤
-│  TWO-WHEELER SECTION (40 slots)     │
-│  ├─ Lane A: 10 slots                │
-│  ├─ Lane B: 10 slots                │
-│  ├─ Lane C: 10 slots                │
-│  └─ Lane D: 10 slots                │
-├─────────────────────────────────────┤
-│  TRUCK SECTION (20 slots)           │
-│  └─ Lane A: 20 slots                │
-└─────────────────────────────────────┘
-```
-
-### Data Flow
-```
-1. User books slot
-   ↓
-2. BST searches for available slot (O(log n))
-   ↓
-3. If found → Allocate & generate token
-   If not found → Add to Priority Queue
-   ↓
-4. When slot releases:
-   - Update BST
-   - Check Priority Queue (VIP first)
-   - Auto-allocate to waiting customer
-```
-
----
-
-## 📖 Usage Guide
-
-### 1. **Book a Parking Slot**
-1. Click "Book Slot" button
-2. Enter vehicle details (number, type, driver name)
-3. Optional: Check "VIP Customer" for priority
-4. Click "Book Slot"
-5. Token generated automatically!
-
-### 2. **Release a Slot**
-1. Click "Release Slot" button
-2. Enter vehicle number
-3. Click "Release Slot"
-4. If someone is waiting, they'll be auto-allocated!
-
-### 3. **View Admin Panel**
-1. Click "Admin Panel" tab
-2. See:
-   - **Active Tokens** - All current parking tokens with download/share options
-   - **Recent Bookings** - Booking history with status
-   - **System Statistics** - Occupancy, revenue, vehicle counts
-   - **DSA in Action** - Real-time data structure operations!
-
-### 4. **Download/Share Token**
-- In Active Tokens section, click "Download" to save token as `.txt` file
-- Click "Share" to copy token details to clipboard
-- Perfect for sending to customers!
-
-### 5. **Search Tokens**
-- Use search bar in Active Tokens section
-- Search by token ID or vehicle number
-- Results update in real-time
-
----
-
-## 🔧 Technical Details
-
-### Technologies Used
-- **HTML5** - Structure
-- **CSS3** - Modern UI with gradients, animations, flexbox, grid
-- **Vanilla JavaScript** - No frameworks, pure JS
-- **Font Awesome** - Icons
-
-### DSA Concepts Implemented
-1. **Binary Search Tree (AVL)**
-   - Self-balancing tree
-   - Rotations: Left, Right, Left-Right, Right-Left
-   - In-order, Pre-order, Post-order traversal
-   - Height calculation
-
-2. **Priority Queue**
-   - Dual-queue system (VIP + Regular)
-   - FIFO within each queue
-   - Priority-based dequeue
-
-3. **Graph (Adjacency List)**
-   - Vertex: Each parking slot
-   - Edge: Connection between neighboring slots
-   - Can implement BFS/DFS for pathfinding
-
-4. **Stack**
-   - LIFO booking history
-   - Push on new booking
-   - Peek for recent entry
-
-### Time Complexities
-| Operation | Complexity |
-|-----------|-----------|
-| Search slot (BST) | O(log n) |
-| Insert slot (BST) | O(log n) |
-| Enqueue waitlist | O(1) |
-| Dequeue waitlist | O(1) |
-| Push to stack | O(1) |
-| Pop from stack | O(1) |
-| Add graph vertex | O(1) |
-| Add graph edge | O(1) |
-
-### Space Complexity
-- **BST**: O(n) - One node per slot
-- **Priority Queue**: O(w) - Where w = waiting vehicles
-- **Graph**: O(v + e) - Vertices + Edges
-- **Stack**: O(b) - Where b = total bookings
-
----
-
-## 🎨 Color Scheme
-
-- **Primary Blue**: `#2563eb` - Headers, buttons, highlights
-- **Light Blue**: `#dbeafe` - Backgrounds, accents
-- **White**: `#ffffff` - Cards, content areas
-- **Green**: `#16a34a` - Success states, revenue
-- **Purple**: `#9333ea` - VIP indicators
-- **Orange**: `#ea580c` - Warnings, duration
-
----
-
-## 📊 Statistics Tracked
-
-1. **Occupancy Rate** - Percentage of slots in use
-2. **Total Revenue** - Calculated from active bookings (₹)
-3. **Active Vehicles** - Currently parked vehicles
-4. **Average Duration** - Average parking time (days)
-5. **Vehicle Breakdown** - Count by type (cars, two-wheelers, trucks)
-6. **Waitlist Status** - Total waiting + VIP queue count
-
----
-
-## 🎓 Learning Outcomes
-
-By studying this project, you'll understand:
-1. ✅ How to implement self-balancing BST (AVL tree)
-2. ✅ Priority queue implementation with dual queues
-3. ✅ Graph representation using adjacency list
-4. ✅ Stack operations in real-world scenarios
-5. ✅ Real-time UI updates without frameworks
-6. ✅ Token generation and download functionality
-7. ✅ Search and filter implementations
-8. ✅ Modern CSS with gradients and animations
-9. ✅ Responsive design principles
-10. ✅ Clean code architecture with OOP
-
----
-
-## 🐛 Common Questions
-
-**Q: Why is my waitlist showing 0/0?**  
-A: This is normal! The waitlist only fills when parking is completely full (all 80 slots occupied). Try booking all slots to test it.
-
-**Q: Why do I see 73 connections in the graph?**  
-A: Each lane has N-1 connections (10 slots = 9 connections). Total: (9×2) + (9×4) + (19×1) = 73
-
-**Q: How is the tree height calculated?**  
-A: For a balanced BST with 80 nodes, height ≈ log₂(80) ≈ 6-7 levels
-
-**Q: Can I change the pricing?**  
-A: Yes! Edit the `pricing` object in the `ParkingSystem` constructor in `script.js`
-
-**Q: Can I add more parking slots?**  
-A: Yes! Modify the `lanes` configuration in the constructor. The system automatically adjusts.
-
----
-
-## 🚀 Future Enhancements
-
-Potential improvements:
-- [ ] Payment gateway integration
-- [ ] Real QR code generation (using qrcode.js)
-- [ ] Email/SMS notifications
-- [ ] Booking history export (CSV/PDF)
-- [ ] User authentication
-- [ ] Mobile app version
-- [ ] Analytics dashboard with charts
-- [ ] Multi-level parking support
-- [ ] Reservation system (book in advance)
-- [ ] API for third-party integration
-
----
-
-## 👨‍💻 Project Structure
-
-```
+```text
 smart-parking-allocation/
-├── index.html          # Main HTML structure
-├── styles.css          # All styling (admin panel, tokens, DSA cards)
-├── script.js           # Complete logic (BST, Queue, Graph, Stack)
-└── README.md           # This file
+├── backend/
+│   ├── server.js              # Express REST API, in-memory state, demo seed & routing
+│   └── test.js                # Node test suite (8 comprehensive tests)
+├── dsa/
+│   ├── Graph.js               # Adjacency list graph implementation
+│   ├── MinPriorityQueue.js    # Manual binary min-heap implementation
+│   ├── Dijkstra.js            # Dijkstra algorithm, trace snapshots & objectives
+│   └── optimizer.js           # Multi-warehouse priority-aware greedy tour optimizer
+├── frontend/
+│   ├── index.html             # Page 1: Overview Dashboard
+│   ├── warehouses.html        # Page 2: Warehouse Management
+│   ├── locations.html         # Page 3: Location Management
+│   ├── roads.html             # Page 4: Interactive Weighted Road Network & SVG Map
+│   ├── orders.html            # Page 5: Delivery Order Management
+│   ├── structures.html        # Page 6: Data Structures Explorer (Heap, Maps, Lists)
+│   ├── dijkstra.html          # Page 7: Dijkstra Shortest Path & Step Debugger
+│   ├── optimizer.html         # Page 8: Multi-Warehouse Route Optimization
+│   ├── trace.html             # Page 9: Execution Trace Player & Step Inspector
+│   ├── complexity.html        # Page 10: DAA Complexity Analysis & Live Graph Bounds
+│   ├── style.css              # Modern logistics design system (CSS variables, badges, SVG styles)
+│   ├── common.js              # Shared shell, sidebar, notifications, and formatters
+│   ├── graph-view.js          # Interactive SVG Graph Renderer with drag & drop
+│   ├── overview.js            # Overview dashboard controller
+│   ├── warehouses.js          # Warehouse CRUD controller
+│   ├── locations.js           # Location CRUD controller
+│   ├── roads.js               # Road CRUD & graph interaction controller
+│   ├── orders.js              # Order CRUD & filter controller
+│   ├── structures.js          # Data structures inspection controller (Human + Raw JSON)
+│   ├── dijkstra.js            # Dijkstra shortest path controller & step animator
+│   ├── optimizer.js           # Route optimizer controller & tour highlighter
+│   ├── trace.js               # Execution trace player controller
+│   ├── complexity.js          # Dynamic complexity calculator controller
+│   └── script.js              # Script entry fallback
+├── package.json               # Scripts (start, dev, test) and dependencies
+└── README.md                  # Complete documentation
 ```
 
 ---
 
-## 📝 License
+## 🚀 Getting Started
 
-This project is open source and available for educational purposes.
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18.0.0 or higher recommended)
+
+### Installation
+
+```bash
+npm install
+```
+
+### Run Locally
+
+Development mode (with auto-reload):
+```bash
+npm run dev
+```
+
+Production mode:
+```bash
+npm start
+```
+
+Open your browser and navigate to:
+```
+http://localhost:3000
+```
 
 ---
 
-## 🤝 Contributing
+## 🧪 Running Automated Tests
 
-Feel free to fork, improve, and submit pull requests!
+Run the backend and algorithm test suite:
+
+```bash
+npm test
+```
+
+All 8 tests execute in sub-second time using Node's native test runner (`node --test`), verifying:
+1. Distance vs. Time vs. Cost route divergence
+2. Priority queues, deadlines, service times, and unreachable destination detection
+3. Input validation and invalid weight rejection
+4. Min-Heap relaxation step logging
+5. One-way vs. bidirectional road connectivity
+6. Multi-warehouse capacity constraints and return options
+7. Binary min-heap invariants (`extractMin`, `peek`, `isEmpty`)
+8. Adjacency list directional mapping
 
 ---
 
-## 📞 Support
+## 📋 Comprehensive 10-Page Application Guide
 
-If you have questions about the DSA implementation or need help understanding any part of the code, feel free to reach out!
+| # | Page | File | Purpose |
+|---|---|---|---|
+| 1 | **Overview** | `index.html` | Real-time KPI cards (warehouses, locations, roads, orders), compact road network preview, recent orders table, and quick actions. |
+| 2 | **Warehouses** | `warehouses.html` | Register supply hubs, set default departure hub, assign location nodes, configure weight capacity constraints (kg), with safe dependency deletion checks. |
+| 3 | **Locations** | `locations.html` | Manage graph vertices (nodes). Rejects deletion if connected roads, warehouses, or orders depend on the node. |
+| 4 | **Road Network** | `roads.html` | Interactive pure SVG graph visualization with draggable nodes, edge weight badges ($km, min, ₹$), one-way directed arrow markers, and inspector card. |
+| 5 | **Delivery Orders** | `orders.html` | Create customer orders with priority tiers (Critical, High, Normal, Low), destination nodes, package weight, service times, and deadlines. Filter by priority, status, and hub. |
+| 6 | **Data Structures** | `structures.html` | DAA pedagogical inspector showing: Adjacency List, Binary Min-Heap, Distance Table, Predecessor Map, Visited Set, Warehouses, and Final Sequence. Supports toggle between Human View and Raw JSON. |
+| 7 | **Shortest Path** | `dijkstra.html` | Execute Dijkstra with custom Min-Heap for Distance, Time, or Cost. Interactive step debugger with Previous/Next/Play controls and SVG path highlight. |
+| 8 | **Route Optimization** | `optimizer.html` | Main multi-warehouse delivery planner. Select departure warehouse, candidate orders, automatic hub selection, return to hub, and balanced cost/time sliders with min-max normalization. |
+| 9 | **Execution Trace** | `trace.html` | Step-by-step playback of the latest optimizer run. Inspects candidate queue evaluations, selection reasons, and leg-by-leg SVG tour progress. |
+| 10 | **Complexity Analysis** | `complexity.html` | Educational breakdown of all algorithms. Calculates live theoretical operation bounds based on the actual in-memory graph size ($|V|, |E|, |W|, |K|$). |
 
 ---
 
-**Made with ❤️ and Data Structures**
+## 💡 Quick Evaluation / Viva Demo Tips
 
-*This project demonstrates that DSA isn't just theory - it solves real-world problems efficiently!*
+1. **Clean Start**: RouteWise begins with empty state to demonstrate data structure creation.
+2. **Instant Demo**: Click the **"Load Demo"** button on the top banner or on the Overview empty state to instantly load 7 realistic locations, 2 warehouse hubs, 9 weighted roads, and 5 prioritized delivery orders.
+3. **Compare Dijkstra Metrics**: Go to **Shortest Path**, pick `Central Hub` $\to$ `City Airport`. Notice how changing the objective from **Minimum Distance** to **Minimum Travel Time** or **Minimum Cost** discovers different optimal paths based on road conditions.
+4. **Run Route Optimizer**: Go to **Route Optimization**, select `Central Distribution Center`, choose **Balanced Cost & Time**, select all pending orders, and click **Calculate Optimal Delivery Tour**.
+5. **Inspect Execution Trace**: Navigate through the timeline to see why Critical orders were prioritized before Normal orders, and how the vehicle returned to the warehouse depot.
+6. **Reset State**: Click the **"Reset"** button on the top banner at any time to return the server to a clean empty state.

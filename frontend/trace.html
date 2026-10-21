@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Execution Trace • RouteWise</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app-root"></div>
+
+  <template id="page-content">
+    <!-- No Run Recorded Empty State -->
+    <div class="panel" id="trace-empty-panel" style="display:none;">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="28" height="28">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <div class="empty-title">No Optimization Trace Recorded Yet</div>
+        <div class="empty-text">
+          Run the Multi-Warehouse Route Optimizer to record an algorithmic execution trace of candidate evaluations and priority decisions.
+        </div>
+        <a href="/optimizer.html" class="btn btn-primary" style="margin-top:10px;">Run Route Optimizer →</a>
+      </div>
+    </div>
+
+    <!-- Active Trace Container -->
+    <div id="trace-active-container" style="display:none; display:flex; flex-direction:column; gap:20px;">
+      <!-- Step Navigation Player Bar -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title-box">
+            <span class="panel-title">Greedy Optimizer Step Inspector</span>
+          </div>
+          <div class="player-controls">
+            <div class="player-buttons">
+              <button class="btn btn-secondary btn-sm" id="btn-trace-start">⏮️ Start</button>
+              <button class="btn btn-secondary btn-sm" id="btn-trace-prev">◀️ Previous</button>
+              <button class="btn btn-primary btn-sm" id="btn-trace-play">▶ Play</button>
+              <button class="btn btn-secondary btn-sm" id="btn-trace-next">Next ▶️</button>
+              <button class="btn btn-secondary btn-sm" id="btn-trace-end">⏭️ End</button>
+            </div>
+            <div class="step-counter" id="step-number-pill">Step 1 of 1</div>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <!-- Step Highlight Card -->
+          <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:16px; margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:8px;">
+              <div style="font-size:1.1rem; font-weight:800; color:#1e40af;" id="step-title">
+                Step 1: Selecting Next Delivery Stop
+              </div>
+              <div id="step-location-badge" class="badge badge-normal" style="font-size:0.85rem;">
+                Vehicle at: Central Hub
+              </div>
+            </div>
+            <div style="font-size:0.88rem; color:#1e3a8a; font-weight:500;" id="step-reason-text">
+              Evaluating candidates from current location...
+            </div>
+          </div>
+
+          <!-- Cumulative Progress Metrics -->
+          <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card">
+              <div class="stat-header">Cumulative Distance</div>
+              <div class="stat-value" id="trace-cum-dist" style="font-size:1.4rem; color:#2563eb;">0 km</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Cumulative Time</div>
+              <div class="stat-value" id="trace-cum-time" style="font-size:1.4rem; color:#d97706;">0m</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Cumulative Cost</div>
+              <div class="stat-value" id="trace-cum-cost" style="font-size:1.4rem; color:#16a34a;">₹0</div>
+            </div>
+          </div>
+
+          <!-- Candidates Evaluated Table -->
+          <div>
+            <div style="font-weight:700; font-size:0.92rem; color:#0f172a; margin-bottom:8px;">
+              Candidate Orders Evaluated in Heap at this Step:
+            </div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Candidate Order</th>
+                    <th>Destination Location</th>
+                    <th>Priority</th>
+                    <th>Serving Hub</th>
+                    <th>Dijkstra Score</th>
+                    <th>Leg Distance</th>
+                    <th>Leg Time</th>
+                    <th>Leg Cost</th>
+                    <th>Reachable Path</th>
+                  </tr>
+                </thead>
+                <tbody id="trace-candidates-body">
+                  <tr><td colspan="9" style="text-align:center;">No candidates.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graph View Showing Current Step's Segment -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Tour Segment Visualization at Step</span>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div class="graph-container" id="trace-graph-container" style="height:440px; border:none; border-radius:0;"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script type="module" src="/trace.js"></script>
+</body>
+</html>

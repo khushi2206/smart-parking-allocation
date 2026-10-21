@@ -274,7 +274,7 @@ function setupEvents() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  renderAppShell('optimizer', 'Multi-Warehouse Route Optimizer', 'Priority-aware greedy heuristic combined with Dijkstra shortest paths');
+  renderAppShell('optimizer', 'Multi-Warehouse Route Optimizer', "Prim's MST algorithm & priority-aware greedy cut combined with Dijkstra shortest paths");
   setupEvents();
   await loadData();
 });

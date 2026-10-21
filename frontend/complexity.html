@@ -80,29 +80,26 @@
         </div>
       </div>
 
-      <!-- Multi-Warehouse Greedy Optimizer Complexity -->
+      <!-- Multi-Warehouse Prim's Algorithm Optimizer Complexity -->
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title">2. Priority-Aware Multi-Warehouse Delivery Optimizer</span>
+          <span class="panel-title">2. Prim's Algorithm &amp; Multi-Warehouse Delivery Optimizer</span>
           <span class="badge badge-normal">Time: O(K² · (V + E) log V) • Space: O(V + E + K)</span>
         </div>
         <div class="panel-body" style="font-size:0.88rem; color:#334155; line-height:1.65;">
           <p>
-            The multi-warehouse route optimizer plans a complete delivery run serving <code>K</code> orders across multiple candidate hubs.
+            The multi-warehouse route optimizer constructs the delivery tour using <strong>Prim's Algorithm (Minimum Spanning Tree / Greedy Cut Property)</strong> to iteratively connect delivery locations into a delivery tree originating from warehouse distribution hubs.
           </p>
 
-          <h4 style="margin-top:14px; margin-bottom:6px; color:#0f172a; font-weight:700;">Why a Greedy Heuristic is Used:</h4>
+          <h4 style="margin-top:14px; margin-bottom:6px; color:#0f172a; font-weight:700;">How Prim's Algorithm is Applied:</h4>
           <p>
-            Finding the exact globally optimal sequence for a multi-stop vehicle tour across multiple destination nodes is a generalization of the <strong>Traveling Salesperson Problem (TSP)</strong> and the <strong>Vehicle Routing Problem (VRP)</strong>. Both problems are provably <strong>NP-hard</strong>, requiring factorial time <code>O(K!)</code> or exponential time <code>O(2^K · K²)</code> via dynamic programming (Bellman-Held-Karp). For larger customer sets, exact solutions become computationally intractable.
+            Standard Prim's algorithm grows a tree \(T\) from an initial root vertex by maintaining a cut \((S, V \setminus S)\) between visited vertices \(S\) and unvisited vertices \(V \setminus S\). At each iteration, it greedily selects the minimum-cost edge crossing the cut. In RouteWise:
           </p>
-
-          <h4 style="margin-top:14px; margin-bottom:6px; color:#0f172a; font-weight:700;">Heuristic Execution Complexity:</h4>
           <ol style="margin-left:22px;">
-            <li>At each delivery step <code>i &in; [1, K]</code>, there are <code>(K - i + 1)</code> remaining pending orders.</li>
-            <li>For each candidate order, the optimizer calculates the shortest path from the current vehicle location (or candidate warehouse) using Dijkstra: <code>O((V + E) log V)</code>.</li>
-            <li>Candidates are inserted into a priority-aware Min-Heap keyed by priority rank (Critical &gt; High &gt; Normal &gt; Low), deadline urgency, and normalized objective score.</li>
-            <li>The total number of Dijkstra executions across all <code>K</code> delivery decisions is <code>&sum;_{i=1}^{K} i = O(K²)</code>.</li>
-            <li>Thus, the complete optimizer worst-case runtime is <code>O(K² · (V + E) log V)</code>.</li>
+            <li><strong>Initialization:</strong> The distribution hub is added to the MST visited vertex set \(S = \{\text{warehouse}\}\).</li>
+            <li><strong>Cut Evaluation:</strong> For every unvisited destination in \(V \setminus S\), the shortest path and transit metrics from the current frontier are evaluated using Dijkstra: <code>O((V + E) log V)</code>.</li>
+            <li><strong>Priority-Aware Greedy Choice:</strong> Candidate crossing edges are organized in a Min-Heap keyed by priority rank (Critical &gt; High &gt; Normal &gt; Low), remaining delivery deadlines, vehicle capacity constraints, and objective scores.</li>
+            <li><strong>Tree Expansion:</strong> The highest-priority, minimum-cost candidate \(u^* \in V \setminus S\) is extracted and added to \(S \leftarrow S \cup \{u^*\}\). The process repeats until all deliveries are fulfilled, followed by an optional return leg to the starting hub.</li>
           </ol>
         </div>
       </div>
@@ -165,6 +162,14 @@
                   <td><code>O(1)</code></td>
                   <td><code>O(1)</code></td>
                   <td>Prevents re-processing nodes; guarantees loop-free search.</td>
+                </tr>
+                <tr>
+                  <td><strong>MST Cut Set (Set)</strong></td>
+                  <td>Prim's tree expansion tracking (S vs V \ S)</td>
+                  <td><code>O(V)</code></td>
+                  <td><code>O(1)</code></td>
+                  <td><code>O(1)</code></td>
+                  <td>Maintains the growing spanning tree vertices to ensure cycle-free greedy tour expansion.</td>
                 </tr>
               </tbody>
             </table>

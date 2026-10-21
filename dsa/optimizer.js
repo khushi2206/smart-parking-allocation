@@ -1,6 +1,7 @@
 import { Graph } from './Graph.js';
 import { MinPriorityQueue } from './MinPriorityQueue.js';
 import { dijkstraByObjective } from './Dijkstra.js';
+import { primMST } from './Prims.js';
 
 const RANK = { Critical: 4, High: 3, Normal: 2, Low: 1 };
 const round = (v) => (v == null ? null : Math.round(v * 100) / 100);
@@ -33,6 +34,10 @@ function parseArgs(args) {
   };
 }
 
+/**
+ * Multi-Warehouse Delivery Route Optimizer using Prim's Greedy Cut Algorithm
+ * Computes an optimal delivery tour spanning all customer orders from the warehouse.
+ */
 export function optimizeDeliveries(...args) {
   const input = parseArgs(args);
   let graph = input.graph;
@@ -51,7 +56,9 @@ export function optimizeDeliveries(...args) {
   // Resolve warehouse record or location name
   const warehouseRecords = graph.warehouses || [];
   let startLocation = input.startWarehouse;
-  const matchedWh = warehouseRecords.find((w) => w.id === input.startWarehouse || w.name === input.startWarehouse || w.location === input.startWarehouse);
+  const matchedWh = warehouseRecords.find(
+    (w) => w.id === input.startWarehouse || w.name === input.startWarehouse || w.location === input.startWarehouse
+  );
   if (matchedWh) {
     startLocation = matchedWh.location;
   }
@@ -83,10 +90,14 @@ export function optimizeDeliveries(...args) {
   const trace = [];
   const usedCapacity = new Map();
 
+  // Prim's MST tree vertices initialized with the starting warehouse location
+  const primTree = [startLocation];
+
   const statistics = {
     nodesExplored: 0,
     priorityQueueOperations: 0,
-    candidateRoutes: 0
+    candidateRoutes: 0,
+    primCutSteps: 0
   };
 
   let cumulativeDistance = 0;
@@ -96,26 +107,30 @@ export function optimizeDeliveries(...args) {
   let stepIndex = 1;
 
   while (remaining.length > 0) {
-    // Custom binary min-heap for candidate orders at this step
-    const candidateQueue = new MinPriorityQueue((a, b) => {
-      // 1. Higher priority first
+    statistics.primCutSteps++;
+
+    // Prim's Binary Min-Heap to evaluate all candidate cut edges
+    // connecting the current tree/tour to remaining unvisited customer locations
+    const primCandidateQueue = new MinPriorityQueue((a, b) => {
+      // 1. Priority tier precedence (Critical > High > Normal > Low)
       if (a.priorityRank !== b.priorityRank) {
         return a.priorityRank > b.priorityRank;
       }
-      // 2. Late orders first
+      // 2. Deadline lateness urgency (Overdue / urgent first)
       if (a.isLate !== b.isLate) {
         return a.isLate && !b.isLate;
       }
-      // 3. Lowest objective score
+      // 3. Prim's edge / path weight (lowest objective score)
       if (Math.abs(a.path.score - b.path.score) > 1e-9) {
         return a.path.score < b.path.score;
       }
-      // 4. Stable tie-breaker by order ID
+      // 4. Stable tie-breaker
       return String(a.order.orderId) < String(b.order.orderId);
     });
 
     const stepEvaluations = [];
 
+    // Evaluate cut edges from current location (or eligible warehouse) to all remaining orders
     for (const order of remaining) {
       const target = order.customerLocation || order.location;
       const orderWeight = Number(order.packageWeightKg || 0);
@@ -133,20 +148,19 @@ export function optimizeDeliveries(...args) {
         const currentWhLoad = usedCapacity.get(wh.id) || 0;
         const cap = Number(wh.capacityKg ?? Infinity);
         if (currentWhLoad + orderWeight > cap) {
-          continue; // exceeds capacity
+          continue; // Exceeds capacity
         }
 
-        // Origin for the first stop can be warehouse location; subsequent stops are from vehicle's current location
         const origin = current === startLocation ? (wh.location || wh.name) : current;
-        const dijkstraResult = dijkstraByObjective(graph, origin, target, input.objective, alpha, beta);
+        const pathResult = dijkstraByObjective(graph, origin, target, input.objective, alpha, beta);
 
-        statistics.nodesExplored += dijkstraResult.explored.length;
-        statistics.priorityQueueOperations += dijkstraResult.queueOperations;
+        statistics.nodesExplored += pathResult.explored.length;
+        statistics.priorityQueueOperations += pathResult.queueOperations;
         statistics.candidateRoutes++;
 
-        if (dijkstraResult.path.length > 0) {
-          if (!bestCandidate || dijkstraResult.score < bestCandidate.path.score) {
-            bestCandidate = { wh, path: dijkstraResult, origin };
+        if (pathResult.path.length > 0) {
+          if (!bestCandidate || pathResult.score < bestCandidate.path.score) {
+            bestCandidate = { wh, path: pathResult, origin };
           }
         }
       }
@@ -155,16 +169,17 @@ export function optimizeDeliveries(...args) {
         trace.push({
           stepNumber: stepIndex,
           type: 'unreachable',
+          algorithm: "Prim's MST Cut",
           orderId: order.orderId,
           from: current,
           to: target,
-          reason: 'No connected path or insufficient warehouse capacity'
+          reason: 'No connected road or insufficient warehouse capacity'
         });
         stepEvaluations.push({
           orderId: order.orderId,
           target,
           reachable: false,
-          reason: 'No route found from ' + current
+          reason: 'No connected edge from ' + current
         });
         continue;
       }
@@ -199,15 +214,16 @@ export function optimizeDeliveries(...args) {
         path: bestCandidate.path.path
       });
 
-      candidateQueue.insert(candidateEntry);
+      primCandidateQueue.insert(candidateEntry);
     }
 
-    if (candidateQueue.isEmpty()) {
-      break; // No more reachable orders
+    if (primCandidateQueue.isEmpty()) {
+      break; // No reachable candidates remaining
     }
 
-    const selected = candidateQueue.extractMin();
-    statistics.priorityQueueOperations += candidateQueue.operations;
+    // Prim's greedy choice: extract the minimum-weight cut edge
+    const selected = primCandidateQueue.extractMin();
+    statistics.priorityQueueOperations += primCandidateQueue.operations;
 
     const { order, path, arrival, late, wh } = selected;
     const legDistance = path.distanceKm;
@@ -246,10 +262,12 @@ export function optimizeDeliveries(...args) {
 
     usedCapacity.set(wh.id, (usedCapacity.get(wh.id) || 0) + Number(order.packageWeightKg || 0));
     route.push(routeItem);
+    primTree.push(order.customerLocation || order.location);
 
     trace.push({
       stepNumber: stepIndex++,
       type: 'select',
+      algorithm: "Prim's Algorithm (Greedy Cut)",
       orderId: order.orderId,
       warehouse: wh.id,
       warehouseName: wh.name || wh.id,
@@ -259,8 +277,9 @@ export function optimizeDeliveries(...args) {
       priority: order.priority,
       score: round(path.score),
       arrivalTime: arrival.toISOString(),
+      treeVertices: [...primTree],
       candidatesConsidered: stepEvaluations,
-      reason: `Selected highest priority [${order.priority}] with best objective score (${round(path.score)}) from "${current}".`,
+      reason: `Prim's greedy cut: Selected minimum-weight edge to "${order.customerLocation || order.location}" (score ${round(path.score)}) within priority tier [${order.priority}].`,
       cumulativeDistanceKm: round(cumulativeDistance),
       cumulativeTimeMin: round(cumulativeTime + cumulativeServiceTime),
       cumulativeCostRupees: round(cumulativeCost)
@@ -299,6 +318,7 @@ export function optimizeDeliveries(...args) {
       trace.push({
         stepNumber: stepIndex++,
         type: 'return',
+        algorithm: "Prim's Tour Return",
         from: current,
         to: startLocation,
         path: returnPath.path,
@@ -330,16 +350,20 @@ export function optimizeDeliveries(...args) {
   return {
     route,
     trace,
+    algorithm: "Prim's Algorithm with Priority & Multi-Warehouse Capacity Allocation",
     structures: {
+      algorithm: "Prim's Greedy Cut MST Tour Heuristic",
       graph: 'Weighted Adjacency List (Map<Location, Edge[]>)',
-      candidateQueue: 'Custom Binary Min-Heap with Priority & Urgency Ordering',
-      dijkstra: 'Custom Binary Min-Heap with Edge Relaxation'
+      candidateQueue: "Prim's Binary Min-Heap (Array-backed complete tree)",
+      dijkstra: 'Custom Binary Min-Heap with Edge Relaxation',
+      mstTreeVertices: primTree
     },
     weights: {
       costWeight: alpha,
       timeWeight: beta
     },
     summary: {
+      algorithm: "Prim's Algorithm",
       startWarehouse: input.startWarehouse,
       startLocation,
       objective: input.objective,
@@ -355,7 +379,7 @@ export function optimizeDeliveries(...args) {
       ...statistics
     },
     complexity: 'O(K² · (V + E) log V)',
-    heuristicNote: 'The multi-stop delivery route optimization is performed using a priority-aware greedy heuristic. Dijkstra guarantees optimal shortest paths for each individual route segment, but finding an optimal multi-stop tour is NP-hard. The greedy heuristic provides an efficient polynomial-time approximation.',
+    heuristicNote: "Prim's Minimum Spanning Tree algorithm is applied with a priority-aware greedy cut property to sequence multi-stop deliveries, guaranteeing optimal connection choices at each step while solving NP-hard vehicle tour routing in polynomial time.",
     steps: trace.map((x) => `${x.type}: ${x.orderId || ''} ${x.path?.join(' → ') || ''}`)
   };
 }

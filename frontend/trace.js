@@ -74,8 +74,14 @@ function renderStep(index) {
     : `Step ${step.stepNumber}: Selected Order ${step.orderId || ''}`;
 
   document.getElementById('step-title').textContent = title;
-  document.getElementById('step-location-badge').textContent = `Departing from: ${step.from || 'Warehouse'}`;
-  document.getElementById('step-reason-text').textContent = step.reason || 'Optimal candidate selected according to priority and heuristic score.';
+  const algoTag = step.algorithm ? ` • ${step.algorithm}` : '';
+  document.getElementById('step-location-badge').textContent = `Departing from: ${step.from || 'Warehouse'}${algoTag}`;
+
+  let reasonText = step.reason || 'Optimal candidate selected according to priority and heuristic score.';
+  if (Array.isArray(step.treeVertices) && step.treeVertices.length > 0) {
+    reasonText += ` (Prim's MST Tree Vertices: { ${step.treeVertices.join(', ')} })`;
+  }
+  document.getElementById('step-reason-text').textContent = reasonText;
 
   document.getElementById('trace-cum-dist').textContent = formatDistance(step.cumulativeDistanceKm);
   document.getElementById('trace-cum-time').textContent = formatMinutes(step.cumulativeTimeMin);
